@@ -290,7 +290,7 @@ def sfx_crickets(n):
     t = np.arange(n) / SR
     env = (np.sin(2 * np.pi * 14 * t) > 0.3).astype(np.float32) * (np.sin(2 * np.pi * 0.45 * t) > 0).astype(np.float32)
     env = np.convolve(env, np.ones(200) / 200, "same")
-    return (np.sin(2 * np.pi * 4300 * t) * env * 0.012).astype(np.float32)
+    return (np.sin(2 * np.pi * 4300 * t) * env * 0.004).astype(np.float32)
 
 
 def sfx_paper(n):
@@ -309,11 +309,18 @@ def mix(scenes, total, out):
         p = f"audio/scene/{sc['id']}.wav"
         if os.path.exists(p):
             v = load_audio(p)
+            speech = v[np.abs(v) > 0.01]
+            if len(speech):
+                v *= min(4.0, 10 ** ((-19.0 - 20 * np.log10(np.sqrt((speech ** 2).mean()) + 1e-9)) / 20))
             s = int(sc["narr_start"] * SR)
             voice[s:s + len(v)] += v[:n - s]
             active[s:s + len(v)] = 1
     # ducking: muzica scade cât vorbește naratoarea
-    k = int(0.6 * SR)
+    hold = int(1.8 * SR)
+    ca = np.concatenate([[0], np.cumsum(active)])
+    ix = np.arange(n)
+    active = ((ca[np.minimum(ix + hold, n)] - ca[np.maximum(ix - hold, 0)]) > 0).astype(np.float32)
+    k = int(0.8 * SR)
     cs = np.concatenate([[0], np.cumsum(active)])
     idx = np.arange(n)
     duck = ((cs[np.minimum(idx + k // 2, n)] - cs[np.maximum(idx - k // 2, 0)]) / k).astype(np.float32)
@@ -334,8 +341,8 @@ def mix(scenes, total, out):
         env = np.ones(L, np.float32)
         env[:fade] = np.linspace(0, 1, fade)
         env[-fade:] = np.linspace(1, 0, fade)
-        music[s:e] += seg * env
-    music *= 0.30 - 0.19 * duck
+        music[s:e] += seg * env * (0.5 if cue == "noapte" else 1.0)
+    music *= 0.24 - 0.185 * duck
     sfx = np.zeros(n, np.float32)
     for sc in scenes:
         s, e = int(sc["start"] * SR), int((sc["start"] + sc["dur"]) * SR)
