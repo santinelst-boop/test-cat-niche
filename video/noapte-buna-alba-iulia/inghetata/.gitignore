@@ -1,0 +1,7 @@
+.env
+iesiri/
+final/
+audio/*.wav
+audio/*.mp3
+audio/scene/*.wav
+fonturi/
