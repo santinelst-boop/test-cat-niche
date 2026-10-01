@@ -15,7 +15,7 @@ Copertă cartonată, montată **exact ca modelul Golden Silo** (`GoldenSilo_cope
 - Întoarcere: **20 mm** pe fiecare latură → format tăiat **188 × 250 mm**
 - Bleed: **3 mm** → 194 × 256 mm
 - Semne de tăiere: 5 mm, 0,25 pt, registration
-- Semne albe 0,5 pt pe întoarcere: muchia cartonului și mijlocul (se ascund sub forzaț)
+- Semne **negre** (100% K), 6 mm, 0,75 pt pe întoarcere: muchia cartonului și mijlocul (se ascund sub forzaț)
 
 ## Culoare
 

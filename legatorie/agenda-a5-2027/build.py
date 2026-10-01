@@ -5,7 +5,7 @@ Montaj identic cu „GoldenSilo_coperta_agenda_A5_2027_SRA3.pdf”:
   carton 148 x 210 mm, întoarcere 20 mm, bleed 3 mm
   -> format tăiat 188 x 250 mm, cu bleed 194 x 256 mm
   semne de tăiere 5 mm, 0,25 pt, registration (1 1 1 1 K)
-  semne albe 0,5 pt pe întoarcere: muchia cartonului + mijloc
+  semne negre (100% K) 6 mm / 0,75 pt pe întoarcere: muchia cartonului + mijloc
 Grafica originală (vectorială, CMYK cu profilul ICC din CorelDRAW) stă exact pe
 carton; fondul galben și liniile verzi se prelungesc pe întoarcere și bleed.
 """
@@ -26,6 +26,7 @@ CUT_W, CUT_H = BOARD_W + 2 * WRAP, BOARD_H + 2 * WRAP      # 188 x 250
 PIECE_X = [24, 238]                                          # x tăiere: față, spate
 CUT_Y = (SHEET_H - CUT_H) / 2                                # 35
 MARK_LEN = 5
+GUIDE_LEN, GUIDE_W = 6, 0.75   # semne de carton: 6 mm, 0,75 pt, 100% K
 
 YELLOW = "0 0.2510 0.8510 0.1020"
 GREEN = "0.9490 0.1882 0.7020 0.7216"
@@ -43,7 +44,7 @@ OUT = HERE / "Agenda_A5_2027_coperta_SRA3_cu_semne.pdf"
 
 
 def overlay():
-    """Semne de tăiere, semne albe de carton și textul de identificare."""
+    """Semne de tăiere, semne negre de carton și textul de identificare."""
     buf = io.BytesIO()
     pdfmetrics.registerFont(TTFont("LiberationSans", FONT))
     c = canvas.Canvas(buf, pagesize=(SHEET_W * mm, SHEET_H * mm),
@@ -60,18 +61,19 @@ def overlay():
         for yy in (y0, y1):
             c.line((x - BLEED - MARK_LEN) * mm, yy * mm, (x - BLEED) * mm, yy * mm)
             c.line((x1 + BLEED) * mm, yy * mm, (x1 + BLEED + MARK_LEN) * mm, yy * mm)
-        # semne albe pe întoarcere: muchia cartonului și mijlocul
-        c.setLineWidth(0.5)
-        c.setStrokeColorCMYK(0, 0, 0, 0)
+        # semne negre pe întoarcere: muchia cartonului și mijlocul
+        c.setLineWidth(GUIDE_W)
+        c.setStrokeColorCMYK(0, 0, 0, 1)
         bx0, bx1, by0, by1 = x + WRAP, x1 - WRAP, y0 + WRAP, y1 - WRAP
         mid = x + CUT_W / 2
+        g = GUIDE_LEN
         for xx in (bx0, bx1, mid):
-            c.line(xx * mm, (y0 + 4.5) * mm, xx * mm, (y0 + 7.5) * mm)
-            c.line(xx * mm, (y1 - 7.5) * mm, xx * mm, (y1 - 4.5) * mm)
-        c.line((mid - 1.5) * mm, (y1 - 6) * mm, (mid + 1.5) * mm, (y1 - 6) * mm)
+            c.line(xx * mm, (y0 + 6 - g / 2) * mm, xx * mm, (y0 + 6 + g / 2) * mm)
+            c.line(xx * mm, (y1 - 6 - g / 2) * mm, xx * mm, (y1 - 6 + g / 2) * mm)
+        c.line((mid - g / 2) * mm, (y1 - 6) * mm, (mid + g / 2) * mm, (y1 - 6) * mm)
         for yy in (by0, by1):
-            c.line(x * mm, yy * mm, (x + 3) * mm, yy * mm)
-            c.line((x1 - 3) * mm, yy * mm, x1 * mm, yy * mm)
+            c.line(x * mm, yy * mm, (x + g) * mm, yy * mm)
+            c.line((x1 - g) * mm, yy * mm, x1 * mm, yy * mm)
     c.setFont("LiberationSans", 8)
     c.setFillColorCMYK(0, 0, 0, 1)
     c.drawString(21 * mm, 8 * mm, SLUG)
