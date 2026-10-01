@@ -22,6 +22,7 @@ COLS, ROWS = 2, 2
 X0 = (SHEET_W - COLS * TRIM_W) / 2   # 7.5 mm
 Y0 = (SHEET_H - ROWS * TRIM_H) / 2   # 12 mm
 NAME = "Ai nevoie de rugaciune"
+EDGE_CROP = 2  # px
 
 HERE = Path(__file__).parent
 PAGES = [HERE / "sursa" / "fata.jpg", HERE / "sursa" / "verso.jpg"]
@@ -29,6 +30,8 @@ PAGES = [HERE / "sursa" / "fata.jpg", HERE / "sursa" / "verso.jpg"]
 
 def with_bleed(path):
     im = Image.open(path).convert("RGB")
+    # exporturile au un contur de 1 px mai deschis: îl tăiem, altfel se repetă în bleed
+    im = im.crop((EDGE_CROP, EDGE_CROP, im.width - EDGE_CROP, im.height - EDGE_CROP))
     px_mm = im.width / TRIM_W
     h = round(TRIM_H * px_mm)
     top = (im.height - h) // 2
