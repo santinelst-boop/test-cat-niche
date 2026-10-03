@@ -18,8 +18,8 @@ export default function SiamesePage() {
         <div className={styles.grid}>
           <div className={styles.imageContainer}>
             <Image
-              src="https://images.unsplash.com/photo-1513245543132-31f507417b26"
-              alt="Pisică Siameză"
+              src="/images/rase/siameza.webp"
+              alt="Pisică Siameză seal point cu ochi albaștri, așezată pe un fotoliu"
               fill
               style={{ objectFit: 'cover' }}
               priority

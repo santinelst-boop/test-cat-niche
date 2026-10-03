@@ -5,7 +5,9 @@ description: Generate images and short videos (e.g. cat breed photos, hero image
 
 # /generate
 
-All work goes through one script (no dependencies, Node 18+):
+**Breed images: use the Nano-Banana MCP first.** When the `mcp__Nano-Banana__GEMINI_GENERATE_IMAGE` tool is available, use it for still images (`gemini-3-pro-image-preview`, `image_size: 2K`, `aspect_ratio: 1:1` for breed pages). Spell out the breed's visible traits in the prompt (coat pattern/colour, ears, eyes, body, tail), then download the returned `s3url` right away (it expires in 1 hour). Resize to 1200px WebP (`convert in.jpg -resize 1200x1200 -quality 82 out.webp`) into `public/images/rase/<slug>.webp`. Look at each result and regenerate any that get breed traits wrong. Append the prompt to `generations/log.jsonl` so it can be reused. Use the script below for video, for providers the MCP doesn't cover, or when the MCP is down.
+
+All other work goes through one script (no dependencies, Node 18+):
 
 ```
 node .claude/skills/generate/scripts/generate.mjs --list                      # models, providers, prices, which keys are set
