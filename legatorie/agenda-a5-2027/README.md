@@ -21,3 +21,18 @@ Copertă cartonată, montată **exact ca modelul Golden Silo** (`GoldenSilo_cope
 
 CMYK vectorial, profilul ICC din fișierul original. Galben C0 M25 Y85 K10, verde C95 M19 Y70 K72.
 Fondul și liniile verzi sunt prelungite pe întoarcere și bleed.
+
+## Interior (monocrom) – `interior/`
+
+| Fișier | Rol |
+|---|---|
+| `interior/Agenda_A5_2027_interior_172pag_MONOCROM.pdf` | Interior A5, 172 pagini, monocrom. |
+| `interior/Agenda_A5_2027_interior_172pag_MONOCROM_DUBLAJ_A4.pdf` | **De tipar.** Dublaj A4 identic cu Golden Silo (aceeași pagină A5 de 2 ori pe A4). |
+| `interior/build_interior.py` | Scriptul care le generează din `interior/sursa/` (interiorul Golden Silo). |
+
+- Datele Golden Silo înlocuite cu ale școlii: pag. 1 (prezentare + siglă), pag. 3 (siglă, CLASA / ȘCOALA
+  în loc de FUNCȚIA / COMPANIA), antetul de pe pag. 5–172.
+- Monocrom: tot în tonuri de negru; liniile au minimum 20% negru.
+- Cotor: **+3 mm** față de Golden Silo (pag. impare mutate spre dreapta, pare spre stânga, fără scalare).
+  Margine la cotor 15–17 mm, la exterior minimum 9 mm.
+- Fonturi: Cinzel SemiBold și Cormorant Garamond Medium (SIL OFL, în `interior/fonts/`).
