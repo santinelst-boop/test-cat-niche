@@ -7,8 +7,9 @@ Pornește de la interiorul Golden Silo (dublaj A4, 172 pagini) și:
   3. scoate datele Golden Silo (pag. 1 prezentare, sigla și câmpurile
      FUNCȚIA/COMPANIA de la pag. 3, antetul „GOLDEN SILO” de pe pag. 5–172)
      și pune datele școlii, cu fonturile originale (Cinzel, Cormorant Garamond);
-  4. mărește marginea de la cotor cu GUTTER_EXTRA mm (pag. impare spre
-     dreapta, pare spre stânga) – fără scalare;
+  4. mărește marginea de la cotor cu GUTTER_EXTRA mm păstrând pagina CENTRATĂ:
+     conținutul se micșorează uniform față de centrul paginii, astfel încât
+     cea mai mică margine laterală din original (12 mm) devine 15 mm;
   5. refacere dublaj A4 identic cu originalul (A5 la x=0,709 pt și x=421,654 pt).
 Ieșiri: interior A5 (172 pag.) și dublaj A4 (172 pag.).
 """
@@ -33,7 +34,8 @@ OUT_A4 = HERE / "Agenda_A5_2027_interior_172pag_MONOCROM_DUBLAJ_A4.pdf"
 A5_W, A5_H = 419.52757, 595.2756
 A4_W, A4_H = 841.89, 595.276
 DUBLAJ_X = (0.70866, 421.6535)          # pozițiile A5 pe A4, ca în original
-GUTTER_EXTRA = 3                        # mm în plus la cotor
+GUTTER_EXTRA = 3                        # mm în plus la cotor (și la exterior)
+MIN_SIDE_MARGIN = 12                    # mm, cea mai mică margine laterală din original
 MIN_STROKE_BLACK = 0.20                 # liniile: minimum 20% negru
 
 SCHOOL = "ȘCOALA GIMNAZIALĂ „1 DECEMBRIE 1918”"
@@ -330,12 +332,13 @@ def build():
         page_forms.append(outer)
 
     ov = overlay(spans, n)
-    shift = GUTTER_EXTRA * mm
+    # micșorare uniformă față de centru: marginea de 12 mm devine 15 mm
+    sc = 1 - GUTTER_EXTRA * mm / (A5_W / 2 - MIN_SIDE_MARGIN * mm)
+    tx, ty = (1 - sc) * A5_W / 2, (1 - sc) * A5_H / 2
     for i in range(n):
-        dx = shift if i % 2 == 0 else -shift          # pag. 1,3,5… cotor în stânga
         page = out.add_blank_page(page_size=(A5_W, A5_H))
         xobj = Dictionary()
-        ops = [f"q 1 0 0 1 {dx:.4f} 0 cm"]
+        ops = [f"q {sc:.5f} 0 0 {sc:.5f} {tx:.4f} {ty:.4f} cm"]
         if i != 0:                                    # pag. 1 se refa complet
             pf = out.copy_foreign(page_forms[i])
             pf.Matrix = Array([1, 0, 0, 1, 0, 0])

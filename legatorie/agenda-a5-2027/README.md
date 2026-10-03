@@ -33,6 +33,6 @@ Fondul și liniile verzi sunt prelungite pe întoarcere și bleed.
 - Datele Golden Silo înlocuite cu ale școlii: pag. 1 (prezentare + siglă), pag. 3 (siglă, CLASA / ȘCOALA
   în loc de FUNCȚIA / COMPANIA), antetul de pe pag. 5–172.
 - Monocrom: tot în tonuri de negru; liniile au minimum 20% negru.
-- Cotor: **+3 mm** față de Golden Silo (pag. impare mutate spre dreapta, pare spre stânga, fără scalare).
-  Margine la cotor 15–17 mm, la exterior minimum 9 mm.
+- Cotor: **+3 mm** față de Golden Silo, cu paginile **centrate** ca în original: conținutul e micșorat
+  uniform (~5%) față de centru, deci marginile laterale cresc cu 3 mm (12→15 mm, 14→16,9 mm).
 - Fonturi: Cinzel SemiBold și Cormorant Garamond Medium (SIL OFL, în `interior/fonts/`).
