@@ -7,9 +7,10 @@ Pornește de la interiorul Golden Silo (dublaj A4, 172 pagini) și:
   3. scoate datele Golden Silo (pag. 1 prezentare, sigla și câmpurile
      FUNCȚIA/COMPANIA de la pag. 3, antetul „GOLDEN SILO” de pe pag. 5–172)
      și pune datele școlii, cu fonturile originale (Cinzel, Cormorant Garamond);
-  4. mărește marginea de la cotor cu GUTTER_EXTRA mm păstrând pagina CENTRATĂ:
-     conținutul se micșorează uniform față de centrul paginii, astfel încât
-     cea mai mică margine laterală din original (12 mm) devine 15 mm;
+  4. CENTREAZĂ exact conținutul fiecărei pagini pe orizontală (originalul
+     alterna 14/12 mm, iar planificările erau toate 14/12 – de aici decalajul
+     față-verso) și îl micșorează uniform, astfel încât paginile de agendă să aibă
+     SIDE_MARGIN mm pe ambele laturi (14 mm la cotor în original + 3 mm);
   5. refacere dublaj A4 identic cu originalul (A5 la x=0,709 pt și x=421,654 pt).
 Ieșiri: interior A5 (172 pag.) și dublaj A4 (172 pag.).
 """
@@ -34,8 +35,7 @@ OUT_A4 = HERE / "Agenda_A5_2027_interior_172pag_MONOCROM_DUBLAJ_A4.pdf"
 A5_W, A5_H = 419.52757, 595.2756
 A4_W, A4_H = 841.89, 595.276
 DUBLAJ_X = (0.70866, 421.6535)          # pozițiile A5 pe A4, ca în original
-GUTTER_EXTRA = 3                        # mm în plus la cotor (și la exterior)
-MIN_SIDE_MARGIN = 12                    # mm, cea mai mică margine laterală din original
+SIDE_MARGIN = 17                        # mm stânga = dreapta (14 mm cotor original + 3 mm)
 MIN_STROKE_BLACK = 0.20                 # liniile: minimum 20% negru
 
 SCHOOL = "ȘCOALA GIMNAZIALĂ „1 DECEMBRIE 1918”"
@@ -198,6 +198,18 @@ class Rewriter:
 
 
 # ---------------------------------------------------------------- texte de înlocuit
+def content_x(src_path):
+    """Marginile orizontale reale ale conținutului fiecărei pagini A5 (pt)."""
+    doc = pymupdf.open(src_path)
+    boxes = []
+    for p in doc:
+        rs = [d["rect"] for d in p.get_drawings() if d["rect"].x1 < DUBLAJ_X[1]]
+        rs += [pymupdf.Rect(b["bbox"]) for b in p.get_text("dict")["blocks"] if b["bbox"][2] < DUBLAJ_X[1]]
+        rs += [pymupdf.Rect(i["bbox"]) for i in p.get_image_info() if i["bbox"][2] < DUBLAJ_X[1]]
+        boxes.append((min(r.x0 for r in rs) - DUBLAJ_X[0], max(r.x1 for r in rs) - DUBLAJ_X[0]) if rs else None)
+    return boxes
+
+
 def find_spans(src_path):
     """Pentru fiecare pagină A5: zonele de scos și pozițiile textelor (coord. PDF)."""
     doc = pymupdf.open(src_path)
@@ -332,12 +344,19 @@ def build():
         page_forms.append(outer)
 
     ov = overlay(spans, n)
-    # micșorare uniformă față de centru: marginea de 12 mm devine 15 mm
-    sc = 1 - GUTTER_EXTRA * mm / (A5_W / 2 - MIN_SIDE_MARGIN * mm)
-    tx, ty = (1 - sc) * A5_W / 2, (1 - sc) * A5_H / 2
+    # centrare exactă pe orizontală + micșorare uniformă (aceeași pe toate paginile)
+    boxes = content_x(SRC)
+    # reper: lățimea paginilor de agendă (cele mai multe); calendarele, puțin mai
+    # late, rămân cu 1 mm mai puțin (16 mm), tot centrate
+    widths = sorted(b[1] - b[0] for b in boxes if b)
+    sc = min(1.0, (A5_W - 2 * SIDE_MARGIN * mm) / widths[len(widths) // 2])
+    ty = (1 - sc) * A5_H / 2
     for i in range(n):
         page = out.add_blank_page(page_size=(A5_W, A5_H))
         xobj = Dictionary()
+        # pag. 1 e desenată nouă, deja centrată
+        cx = A5_W / 2 if (i == 0 or not boxes[i]) else (boxes[i][0] + boxes[i][1]) / 2
+        tx = A5_W / 2 - sc * cx
         ops = [f"q {sc:.5f} 0 0 {sc:.5f} {tx:.4f} {ty:.4f} cm"]
         if i != 0:                                    # pag. 1 se refa complet
             pf = out.copy_foreign(page_forms[i])
@@ -357,6 +376,7 @@ def build():
         page.Contents = out.make_stream(" ".join(ops).encode())
     out.docinfo["/Title"] = "Agenda A5 2027 – interior monocrom – Școala Gimnazială „1 Decembrie 1918”"
     out.save(OUT_A5)
+    print(f"micșorare {sc:.4f}")
     print("text scos:", len(rw.removed), "| pagini cu înlocuiri:", sum(1 for s in spans if s))
 
     # dublaj A4: aceeași pagină A5 de două ori, ca în original
