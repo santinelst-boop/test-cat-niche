@@ -18,8 +18,8 @@ export default function BengalPage() {
         <div className={styles.grid}>
           <div className={styles.imageContainer}>
             <Image
-              src="https://images.unsplash.com/photo-1606214174585-fe31582dc6ee"
-              alt="Pisică Bengal"
+              src="/images/rase/bengal.webp"
+              alt="Pisică Bengal cu blană aurie pătată cu rozete, așezată lângă fereastră"
               fill
               style={{ objectFit: 'cover' }}
               priority

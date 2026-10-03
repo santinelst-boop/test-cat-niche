@@ -1,0 +1,68 @@
+{
+  "_note": "Model catalog for /generate. est_usd = estimated price per output, used for budget checks and cheapest-first routing. Prices change often: re-check the provider's model page and update est_usd + checked. Provider ids marked verify:true were not confirmed against live docs - if a call returns 4xx 'model not found', look up the current id on the provider's model page and fix it here.",
+  "models": {
+    "nano-banana": {
+      "type": "image",
+      "label": "Google Nano Banana (Gemini 2.5 Flash Image)",
+      "providers": {
+        "kie": { "id": "google/nano-banana", "edit_id": "google/nano-banana-edit", "ref_field": "image_urls", "est_usd": 0.02, "verify": true },
+        "fal": { "id": "fal-ai/nano-banana", "edit_id": "fal-ai/nano-banana/edit", "ref_field": "image_urls", "est_usd": 0.039 },
+        "wavespeed": { "id": "google/nano-banana/text-to-image", "edit_id": "google/nano-banana/edit", "ref_field": "images", "est_usd": 0.038, "verify": true }
+      }
+    },
+    "nano-banana-2": {
+      "type": "image",
+      "label": "Google Nano Banana 2",
+      "providers": {
+        "kie": { "id": "nano-banana-2", "ref_field": "image_input", "est_usd": 0.04, "verify": true },
+        "fal": { "id": "fal-ai/nano-banana-2", "edit_id": "fal-ai/nano-banana-2/edit", "ref_field": "image_urls", "est_usd": 0.08, "verify": true }
+      }
+    },
+    "nano-banana-pro": {
+      "type": "image",
+      "label": "Google Nano Banana Pro (Gemini 3 Pro Image)",
+      "providers": {
+        "kie": { "id": "nano-banana-pro", "ref_field": "image_input", "est_usd": 0.09, "verify": true },
+        "fal": { "id": "fal-ai/nano-banana-pro", "edit_id": "fal-ai/nano-banana-pro/edit", "ref_field": "image_urls", "est_usd": 0.15 },
+        "wavespeed": { "id": "google/nano-banana-pro/text-to-image", "edit_id": "google/nano-banana-pro/edit", "ref_field": "images", "est_usd": 0.14, "verify": true }
+      }
+    },
+    "gpt-image-2": {
+      "type": "image",
+      "label": "OpenAI GPT Image 2 (best for text-in-image and edits)",
+      "providers": {
+        "kie": { "id": "gpt-image-2", "ref_field": "input_urls", "est_usd": 0.05, "est_usd_by_resolution": { "1K": 0.03, "2K": 0.05, "4K": 0.08 }, "verify": true },
+        "fal": { "id": "fal-ai/gpt-image-2", "edit_id": "fal-ai/gpt-image-2/edit", "ref_field": "image_urls", "est_usd": 0.2, "verify": true },
+        "wavespeed": { "id": "openai/gpt-image-2/text-to-image", "edit_id": "openai/gpt-image-2/edit", "ref_field": "images", "est_usd": 0.2, "verify": true }
+      }
+    },
+    "seedream-4": {
+      "type": "image",
+      "label": "ByteDance Seedream 4 (cheap, photoreal)",
+      "providers": {
+        "kie": { "id": "bytedance/seedream-v4-text-to-image", "edit_id": "bytedance/seedream-v4-edit", "ref_field": "image_urls", "est_usd": 0.0175, "verify": true },
+        "fal": { "id": "fal-ai/bytedance/seedream/v4/text-to-image", "edit_id": "fal-ai/bytedance/seedream/v4/edit", "ref_field": "image_urls", "est_usd": 0.03 },
+        "wavespeed": { "id": "bytedance/seedream-v4", "edit_id": "bytedance/seedream-v4/edit", "ref_field": "images", "est_usd": 0.027, "verify": true }
+      }
+    },
+    "kling-i2v": {
+      "type": "video",
+      "label": "Kling 2.1 Standard image-to-video (5s)",
+      "requires_ref": true,
+      "providers": {
+        "fal": { "id": "fal-ai/kling-video/v2.1/standard/image-to-video", "ref_field": "image_url", "ref_single": true, "est_usd": 0.25 },
+        "wavespeed": { "id": "kwaivgi/kling-v2.1-i2v-standard", "ref_field": "image", "ref_single": true, "est_usd": 0.25, "verify": true }
+      }
+    },
+    "seedance-fast": {
+      "type": "video",
+      "label": "Seedance 1 Pro Fast image-to-video (720p)",
+      "requires_ref": true,
+      "providers": {
+        "fal": { "id": "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video", "ref_field": "image_url", "ref_single": true, "est_usd": 0.25, "verify": true },
+        "wavespeed": { "id": "bytedance/seedance-v1-pro-fast-i2v-720p", "ref_field": "image", "ref_single": true, "est_usd": 0.2, "verify": true }
+      }
+    }
+  },
+  "checked": "2026-10-03"
+}

@@ -18,8 +18,8 @@ export default function MaineCoonPage() {
         <div className={styles.grid}>
           <div className={styles.imageContainer}>
             <Image
-              src="https://images.unsplash.com/photo-1574158622682-e40e69881006"
-              alt="Pisică Maine Coon"
+              src="/images/rase/maine-coon.webp"
+              alt="Pisică Maine Coon tabby maro cu urechi cu smocuri, întinsă pe o pătură"
               fill
               style={{ objectFit: 'cover' }}
               priority
