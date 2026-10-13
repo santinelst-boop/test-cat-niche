@@ -77,6 +77,16 @@
   .lang { display: inline-flex; border-radius: 999px; overflow: hidden; border: 1px solid rgba(243,231,204,.16); }
   .lang button { border: 0; border-radius: 0; background: transparent; padding: 0 12px; }
   .lang button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .fallback {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1em;
+    padding: 12%; text-align: center; font-size: clamp(14px, 2.2vmin, 20px); line-height: 1.45;
+    background: radial-gradient(ellipse at 50% 35%, #2a2350, #0b0920 70%);
+  }
+  .fallback .moon { width: 4.5em; height: 4.5em; border-radius: 50%; background: #efe1c1; box-shadow: .3em .4em 1em rgba(0,0,0,.5), 0 0 3em rgba(255,232,180,.25); }
+  .fallback p { margin: 0; max-width: 30em; }
+  .fallback .en { color: var(--muted); font-style: italic; }
+  html:not(.js) .bar { visibility: hidden; }
   body.clean .bar { display: none; }
   body.clean { padding: 0; }
   body.clean .stage { width: min(100vw, calc(100vh * 0.8)); border-radius: 0; box-shadow: none; }
@@ -87,6 +97,15 @@
 <div class="stage" id="stage" data-lang="ro">
   <canvas id="cv" width="1080" height="1350" role="img"
     aria-label="Animație: Casimir, un vampir blând de 11 ani, își îmblânzește frica dându-i un nume."></canvas>
+
+  <div class="fallback" id="fallback">
+    <div class="moon" aria-hidden="true"></div>
+    <p class="ro">Animația e desenată în timp real cu JavaScript, iar fereastra aceasta de previzualizare îl blochează.
+      Deschide fișierul <b>casimir.html</b> direct într-un browser (Chrome, Safari, Firefox, Edge) sau folosește versiunea video MP4.</p>
+    <p class="en">This animation is drawn live with JavaScript, which this preview blocks.
+      Open <b>casimir.html</b> directly in a browser, or use the MP4 video version.</p>
+    <p class="en" id="fallbackErr" hidden></p>
+  </div>
 
   <div class="text-layer" id="textLayer">
     <div class="scrim" id="scrim"></div>
@@ -138,6 +157,13 @@
   </span>
 </div>
 
+<script>
+document.documentElement.classList.add('js');
+window.addEventListener('error', e => {
+  const el = document.getElementById('fallbackErr');
+  if (el && document.getElementById('fallback')) { el.hidden = false; el.textContent = 'Error: ' + (e.message || e); }
+});
+</script>
 <script>
 (() => {
 'use strict';
@@ -262,6 +288,7 @@ function keyPath(keys, t) {
 // fill the current-transform path with a soft blurred edge (shadow-offset trick, works everywhere)
 const OFF = 4000;
 function softFill(c, buildPath, color, blur) {
+  if (!c.getTransform) { buildPath(c); c.fillStyle = color; c.fill(); return; }
   c.save();
   const m = c.getTransform();
   c.setTransform(m.a, m.b, m.c, m.d, m.e - OFF, m.f);
@@ -1589,14 +1616,16 @@ window.addEventListener('keydown', e => {
   else if (!onControl && e.key === 'ArrowRight') seek(cur + .5);
   else if (!onControl && e.key === 'ArrowLeft') seek(cur - .5);
 });
-new ResizeObserver(onResize).observe(stage);
+if ('ResizeObserver' in window) new ResizeObserver(onResize).observe(stage); else window.addEventListener('resize', onResize);
 
 if (params.get('lang') === 'en') setLang('en'); else setLang('ro');
 if (params.get('controls') === '0') document.body.classList.add('clean');
 if (params.has('t')) { seek(+params.get('t')); setPlaying(false); }
 
-function frame(now) {
-  const dt = Math.min(.1, (now - last) / 1000); last = now;
+// rAF drives playback; a timer takes over if the host never delivers animation frames
+let lastTick = 0, rafPending = false;
+function step(now) {
+  const dt = Math.min(.1, Math.max(0, (now - last) / 1000)); last = now;
   if (playing) {
     cur += dt;
     if (cur >= DUR) { if (LOOP) cur %= DUR; else { cur = DUR; setPlaying(false); } }
@@ -1608,10 +1637,16 @@ function frame(now) {
     timeEl.textContent = `${cur.toFixed(1)} / ${DUR.toFixed(1)}s`;
     dirty = false;
   }
-  requestAnimationFrame(frame);
 }
+function onAnimationFrame(now) { rafPending = false; lastTick = performance.now(); step(now); schedule(); }
+function schedule() { if (!rafPending) { rafPending = true; requestAnimationFrame(onAnimationFrame); } }
+
 onResize();
-requestAnimationFrame(frame);
+render(cur); syncText(cur);                    // first frame synchronously…
+document.getElementById('fallback').remove();  // …then the "needs JavaScript" panel can go
+last = performance.now();
+schedule();
+setInterval(() => { if (performance.now() - lastTick > 250) step(performance.now()); }, 33);
 
 // small API for recording / embedding
 window.casimir = { seek, setLang, play: () => setPlaying(true), pause: () => setPlaying(false),
