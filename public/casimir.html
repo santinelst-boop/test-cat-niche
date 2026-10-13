@@ -1,0 +1,1622 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casimir și umbra</title>
+<style>
+  :root {
+    --bg: #09070f;
+    --ink: #f3e7cc;
+    --muted: #b9aecb;
+    --accent: #c8323f;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --u: 1px; /* 1 canvas pixel, in CSS pixels; set from JS */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding: 12px 16px; font-family: var(--serif);
+  }
+  .stage {
+    position: relative;
+    width: min(calc(100vw - 32px), calc((100vh - 92px) * 0.8));
+    aspect-ratio: 1080 / 1350;
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(243,231,204,.06);
+    background: #000;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---- Text layer (separate HTML, not drawn on canvas) ---- */
+  .text-layer { position: absolute; inset: 0; pointer-events: none; }
+  .stage[data-lang="ro"] [lang="en"], .stage[data-lang="en"] [lang="ro"] { display: none; }
+  .scrim {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 26%;
+    background: linear-gradient(to bottom, rgba(6,4,14,0), rgba(6,4,14,.72));
+    opacity: 0;
+  }
+  .title {
+    position: absolute; left: 0; right: 0; top: calc(var(--u) * 96);
+    text-align: center; opacity: 0;
+  }
+  .title h1 {
+    margin: 0; font-weight: 400; letter-spacing: .06em;
+    font-size: calc(var(--u) * 128); line-height: 1;
+    text-shadow: 0 0 calc(var(--u) * 30) rgba(255,214,150,.35), 0 calc(var(--u) * 4) calc(var(--u) * 14) rgba(0,0,0,.7);
+  }
+  .title p {
+    margin: calc(var(--u) * 14) 0 0; font-style: italic; color: var(--muted);
+    font-size: calc(var(--u) * 40); letter-spacing: .02em;
+  }
+  .cap {
+    position: absolute; left: 7%; right: 7%; bottom: calc(var(--u) * 92);
+    margin: 0; text-align: center; font-style: italic;
+    font-size: calc(var(--u) * 47); line-height: 1.32;
+    text-wrap: balance; opacity: 0;
+    text-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 14) rgba(0,0,0,.95), 0 0 calc(var(--u) * 3) rgba(0,0,0,.8);
+  }
+  .cap em { font-style: normal; color: #ffd98f; }
+
+  /* ---- Controls ---- */
+  .bar {
+    width: min(calc(100vw - 32px), calc((100vh - 92px) * 0.8));
+    display: flex; align-items: center; gap: 10px;
+    font: 14px/1 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--muted);
+  }
+  .bar button {
+    font: inherit; color: var(--ink); background: rgba(243,231,204,.08);
+    border: 1px solid rgba(243,231,204,.16); border-radius: 999px;
+    height: 32px; min-width: 32px; padding: 0 12px; cursor: pointer;
+  }
+  .bar button:hover { background: rgba(243,231,204,.16); }
+  .bar button:focus-visible { outline: 2px solid #ffd98f; outline-offset: 2px; }
+  .bar input[type=range] { flex: 1; min-width: 60px; accent-color: var(--accent); }
+  .bar .time { font-variant-numeric: tabular-nums; min-width: 74px; text-align: right; }
+  .lang { display: inline-flex; border-radius: 999px; overflow: hidden; border: 1px solid rgba(243,231,204,.16); }
+  .lang button { border: 0; border-radius: 0; background: transparent; padding: 0 12px; }
+  .lang button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  body.clean .bar { display: none; }
+  body.clean { padding: 0; }
+  body.clean .stage { width: min(100vw, calc(100vh * 0.8)); border-radius: 0; box-shadow: none; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage" data-lang="ro">
+  <canvas id="cv" width="1080" height="1350" role="img"
+    aria-label="Animație: Casimir, un vampir blând de 11 ani, își îmblânzește frica dându-i un nume."></canvas>
+
+  <div class="text-layer" id="textLayer">
+    <div class="scrim" id="scrim"></div>
+
+    <div class="title" data-in="0.35" data-out="2.85">
+      <h1>Casimir</h1>
+      <p><span lang="ro">și umbra din cuier</span><span lang="en">and the shadow on the coat stand</span></p>
+    </div>
+
+    <p class="cap" data-in="0.6" data-out="3.05">
+      <span lang="ro">Noaptea, castelul doarme sub o lună de hârtie.</span>
+      <span lang="en">At night, the castle sleeps beneath a paper moon.</span>
+    </p>
+    <p class="cap" data-in="3.65" data-out="5.4">
+      <span lang="ro">Casimir are unsprezece ani și doi colți mici‑mici.</span>
+      <span lang="en">Casimir is eleven, with two tiny fangs.</span>
+    </p>
+    <p class="cap" data-in="5.5" data-out="7.65">
+      <span lang="ro">Dar în seara asta, umbra hainei din cuier tot crește…</span>
+      <span lang="en">But tonight, the shadow of the coat keeps growing…</span>
+    </p>
+    <p class="cap" data-in="7.75" data-out="9.45">
+      <span lang="ro">Așa că face ce face mereu: îi dă un nume.</span>
+      <span lang="en">So he does what he always does: he gives it a name.</span>
+    </p>
+    <p class="cap" data-in="9.55" data-out="11.1">
+      <span lang="ro"><em>„Lumi.”</em> Și umbra se face mică — o molie.</span>
+      <span lang="en"><em>“Lumi.”</em> And the shadow shrinks — into a moth.</span>
+    </p>
+    <p class="cap" data-in="11.45" data-out="13.55">
+      <span lang="ro">Lumi zboară sus, tot mai sus, peste creneluri…</span>
+      <span lang="en">Lumi flies up, higher and higher, past the battlements…</span>
+    </p>
+    <p class="cap" data-in="13.65" data-out="15.75">
+      <span lang="ro">…și se aprinde în lanterna dintre stele.</span>
+      <span lang="en">…and lights up inside the lantern among the stars.</span>
+    </p>
+  </div>
+</div>
+
+<div class="bar" id="bar">
+  <button id="btnPlay" aria-label="Pauză">❚❚</button>
+  <button id="btnRestart" aria-label="De la început">↺</button>
+  <input id="scrub" type="range" min="0" max="16" step="0.01" value="0" aria-label="Timp">
+  <span class="time" id="time">0.0 / 16.0s</span>
+  <span class="lang" role="group" aria-label="Limba textului">
+    <button id="btnRo" aria-pressed="true">RO</button>
+    <button id="btnEn" aria-pressed="false">EN</button>
+  </span>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   Casimir — 16 s, 1080×1350, everything drawn in code (no images).
+   Timeline (seconds):
+     0.0 – 3.6   S1  castle at night under a paper moon, push into his window
+     3.0 – 11.6  S2  his room: the coat's shadow grows into a monster
+     7.8 – 10.6  S3  he writes a name ("Lumi"), the shadow becomes a moth
+    10.9 – 16.0  S4  the moth climbs and becomes the flame of a lantern
+                     constellation; Casimir watches from the battlements
+   ===================================================================== */
+
+const W = 1080, H = 1350, DUR = 16;
+const TAU = Math.PI * 2;
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const mkCanvas = (w, h) => { const b = document.createElement('canvas'); b.width = w; b.height = h; return b; };
+const bufA = mkCanvas(W, H), bufB = mkCanvas(W, H);
+const cA = bufA.getContext('2d'), cB = bufB.getContext('2d');
+
+/* ---------- math ---------- */
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const inv = (a, b, v) => clamp((v - a) / (b - a));
+const E = {
+  io: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+  out: t => 1 - Math.pow(1 - t, 3),
+  in: t => t * t * t,
+  sine: t => -(Math.cos(Math.PI * t) - 1) / 2,
+  back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+};
+// a value that fades in over [a,b] and out over [c,d]
+const env = (t, a, b, c, d) => Math.min(inv(a, b, t), 1 - inv(c, d, t));
+
+function rng(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+function noise1(x, seed = 0) {
+  const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
+  return lerp(hash(i + seed * 101.3), hash(i + 1 + seed * 101.3), u) * 2 - 1;
+}
+
+/* ---------- colour ---------- */
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function mix(a, b, t, alpha = 1) {
+  const A = hex(a), B = hex(b);
+  return `rgba(${Math.round(lerp(A[0], B[0], t))},${Math.round(lerp(A[1], B[1], t))},${Math.round(lerp(A[2], B[2], t))},${alpha})`;
+}
+
+/* ---------- geometry helpers ---------- */
+// symmetric outline: points from top-centre down the right side to bottom-centre
+function mirror(half) {
+  const out = half.map(p => p.slice());
+  for (let i = half.length - 2; i > 0; i--) out.push([-half[i][0], half[i][1]]);
+  return out;
+}
+// closed polygon -> n points evenly spaced by arc length
+function resample(pts, n) {
+  const segs = []; let total = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]); segs.push(l); total += l;
+  }
+  const out = []; let si = 0, acc = 0;
+  for (let k = 0; k < n; k++) {
+    const d = k / n * total;
+    while (si < segs.length - 1 && acc + segs[si] < d) { acc += segs[si]; si++; }
+    const a = pts[si], b = pts[(si + 1) % pts.length], f = segs[si] ? (d - acc) / segs[si] : 0;
+    out.push([lerp(a[0], b[0], f), lerp(a[1], b[1], f)]);
+  }
+  return out;
+}
+function lerpPts(A, B, t) { return A.map((p, i) => [lerp(p[0], B[i][0], t), lerp(p[1], B[i][1], t)]); }
+function smoothPath(c, pts) {
+  const n = pts.length, p0 = pts[n - 1], p1 = pts[0];
+  c.beginPath(); c.moveTo((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2);
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    c.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+  }
+  c.closePath();
+}
+function polyPath(c, pts, close = true) {
+  c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+  if (close) c.closePath();
+}
+// open Catmull-Rom spline, densely sampled
+function catmull(pts, samples = 8) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let s = 0; s < samples; s++) {
+      const t = s / samples, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map(k => .5 * (2 * p1[k] + (-p0[k] + p2[k]) * t +
+        (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)));
+    }
+  }
+  out.push(pts[pts.length - 1].slice());
+  return out;
+}
+// timed key path: keys = [[t,x,y],...] -> [x,y] at time t (Catmull-Rom between keys)
+function keyPath(keys, t) {
+  if (t <= keys[0][0]) return [keys[0][1], keys[0][2]];
+  const n = keys.length;
+  if (t >= keys[n - 1][0]) return [keys[n - 1][1], keys[n - 1][2]];
+  let i = 0; while (keys[i + 1][0] < t) i++;
+  const p0 = keys[Math.max(0, i - 1)], p1 = keys[i], p2 = keys[i + 1], p3 = keys[Math.min(n - 1, i + 2)];
+  const u = E.sine((t - p1[0]) / (p2[0] - p1[0])), u2 = u * u, u3 = u2 * u;
+  return [1, 2].map(k => .5 * (2 * p1[k] + (-p0[k] + p2[k]) * u +
+    (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * u2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * u3));
+}
+// fill the current-transform path with a soft blurred edge (shadow-offset trick, works everywhere)
+const OFF = 4000;
+function softFill(c, buildPath, color, blur) {
+  c.save();
+  const m = c.getTransform();
+  c.setTransform(m.a, m.b, m.c, m.d, m.e - OFF, m.f);
+  buildPath(c);
+  c.shadowColor = color; c.shadowBlur = blur; c.shadowOffsetX = OFF; c.shadowOffsetY = 0;
+  c.fillStyle = '#000'; c.fill();
+  c.restore();
+}
+function glow(c, x, y, r, color, alpha = 1, op = 'lighter') {
+  c.save(); c.globalCompositeOperation = op; c.globalAlpha = alpha;
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.restore();
+}
+function ellipse(c, x, y, rx, ry, rot = 0) { c.beginPath(); c.ellipse(x, y, Math.max(.01, rx), Math.max(.01, ry), rot, 0, TAU); }
+
+/* ---------- procedural textures (generated once) ---------- */
+function makePaper(size, base, seed, fibers = 260) {
+  const b = mkCanvas(size, size), g = b.getContext('2d'), r = rng(seed);
+  g.fillStyle = base; g.fillRect(0, 0, size, size);
+  const img = g.getImageData(0, 0, size, size), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (r() - .5) * 16; d[i] += n; d[i + 1] += n; d[i + 2] += n * .9; }
+  g.putImageData(img, 0, 0);
+  for (let i = 0; i < fibers; i++) {
+    g.globalAlpha = .05 + r() * .07;
+    g.strokeStyle = r() < .55 ? '#ffffff' : '#6b5a40';
+    g.lineWidth = .4 + r() * 1.1;
+    const x = r() * size, y = r() * size, a = r() * TAU, l = 5 + r() * 22;
+    g.beginPath(); g.moveTo(x, y);
+    g.quadraticCurveTo(x + Math.cos(a + .9) * l * .5, y + Math.sin(a + .9) * l * .5, x + Math.cos(a) * l, y + Math.sin(a) * l);
+    g.stroke();
+  }
+  return b;
+}
+function makeGrain(size, seed) {
+  const b = mkCanvas(size, size), g = b.getContext('2d'), r = rng(seed);
+  const img = g.createImageData(size, size), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = r() < .5 ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = r() * 26;
+  }
+  g.putImageData(img, 0, 0);
+  return b;
+}
+const PAPER = makePaper(512, '#f1e4c6', 7);
+const GRAIN = makeGrain(256, 11);
+const grainPattern = ctx.createPattern(GRAIN, 'repeat');
+
+// star fields
+function makeStars(seed, n, x0, y0, x1, y1) {
+  const r = rng(seed), s = [];
+  for (let i = 0; i < n; i++) s.push({
+    x: lerp(x0, x1, r()), y: lerp(y0, y1, Math.pow(r(), 1.35)), r: .6 + Math.pow(r(), 3) * 2.4,
+    ph: r() * TAU, sp: 1.2 + r() * 2.8, warm: r() < .25,
+  });
+  return s;
+}
+function drawStars(c, stars, t, alpha = 1) {
+  c.save();
+  for (const s of stars) {
+    const tw = .55 + .45 * Math.sin(t * s.sp + s.ph);
+    c.globalAlpha = alpha * tw;
+    c.fillStyle = s.warm ? '#ffe7b8' : '#e9e6ff';
+    c.beginPath(); c.arc(s.x, s.y, s.r, 0, TAU); c.fill();
+    if (s.r > 2.2) { // little four-point sparkle on the brightest
+      c.globalAlpha = alpha * tw * .5; c.strokeStyle = c.fillStyle; c.lineWidth = .8;
+      c.beginPath(); c.moveTo(s.x - s.r * 3, s.y); c.lineTo(s.x + s.r * 3, s.y);
+      c.moveTo(s.x, s.y - s.r * 3); c.lineTo(s.x, s.y + s.r * 3); c.stroke();
+    }
+  }
+  c.restore();
+}
+
+/* =====================================================================
+   Shared props
+   ===================================================================== */
+function drawSky(c, stops) {
+  const g = c.createLinearGradient(0, 0, 0, H);
+  stops.forEach(([o, col]) => g.addColorStop(o, col));
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+}
+
+// slightly hand-cut circle (periodic wobble so there is no seam)
+function moonPath(c, x, y, r, seed) {
+  const N = 120; c.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const a = i / N * TAU;
+    const rr = r * (1 + .011 * Math.sin(a * 7 + seed) + .007 * Math.sin(a * 13 + seed * 2.3) + .004 * Math.sin(a * 31 + seed * 4.1));
+    const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+    i ? c.lineTo(px, py) : c.moveTo(px, py);
+  }
+  c.closePath();
+}
+
+// a paper moon hung on a thread, like a theatre prop
+function drawPaperMoon(c, x, y, r, t, seed = 1, haloAlpha = 1) {
+  const rot = Math.sin(t * .8 + seed) * .03;
+  glow(c, x, y, r * 2.7, 'rgba(255,232,180,0.26)', haloAlpha);
+  c.save();
+  c.translate(x, y); c.rotate(rot);
+  c.strokeStyle = 'rgba(240,228,200,.32)'; c.lineWidth = Math.max(1, r * .008);
+  c.beginPath(); c.moveTo(0, -r * .93); c.lineTo(0, -r - 2400); c.stroke();
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,.55)'; c.shadowBlur = r * .2; c.shadowOffsetX = r * .07; c.shadowOffsetY = r * .1;
+  moonPath(c, 0, 0, r, seed); c.fillStyle = '#efe1c1'; c.fill();
+  c.restore();
+  c.save();
+  moonPath(c, 0, 0, r, seed); c.clip();
+  c.drawImage(PAPER, -r * 1.05, -r * 1.05, r * 2.1, r * 2.1);
+  const g = c.createRadialGradient(-r * .3, -r * .35, r * .1, 0, 0, r * 1.05);
+  g.addColorStop(0, 'rgba(255,250,236,.4)'); g.addColorStop(.7, 'rgba(255,240,210,0)'); g.addColorStop(1, 'rgba(110,80,55,.3)');
+  c.fillStyle = g; c.fillRect(-r, -r, r * 2, r * 2);
+  const craters = [[-.36, -.14, .21], [.26, .32, .15], [.3, -.4, .09], [-.08, .48, .08], [.52, .02, .06], [-.55, .3, .05]];
+  for (const [cx, cy, cr] of craters) {
+    c.save();
+    c.shadowColor = 'rgba(90,60,30,.35)'; c.shadowBlur = r * .03; c.shadowOffsetX = r * .012; c.shadowOffsetY = r * .018;
+    moonPath(c, cx * r, cy * r, cr * r, seed + cx * 10); c.fillStyle = '#e3d0aa'; c.fill();
+    c.restore();
+  }
+  // a fold crease across the paper
+  c.lineWidth = Math.max(1, r * .012);
+  c.strokeStyle = 'rgba(255,255,255,.28)';
+  c.beginPath(); c.moveTo(-r, r * .26); c.lineTo(r, -r * .14); c.stroke();
+  c.strokeStyle = 'rgba(110,80,50,.14)';
+  c.beginPath(); c.moveTo(-r, r * .26 + r * .02); c.lineTo(r, -r * .14 + r * .02); c.stroke();
+  c.restore();
+  c.fillStyle = '#bfa77c'; c.beginPath(); c.arc(0, -r * .9, r * .025, 0, TAU); c.fill();
+  c.restore();
+}
+
+// flat-bottomed paper cloud with a crisp offset shadow
+function drawCloud(c, x, y, s, color, shadow = 'rgba(5,3,15,.35)') {
+  const bumps = [[-92, 8, 36], [-48, -12, 48], [8, -26, 58], [62, -8, 46], [102, 10, 32]];
+  const shape = (ox, oy) => {
+    c.beginPath();
+    for (const [bx, by, br] of bumps) { c.moveTo(bx + br + ox, by + oy); c.arc(bx + ox, by + oy, br, 0, TAU); }
+  };
+  c.save(); c.translate(x, y); c.scale(s, s);
+  c.save(); c.beginPath(); c.rect(-200, -200, 420, 240); c.clip();
+  shape(8, 10); c.fillStyle = shadow; c.fill();
+  c.restore();
+  c.save(); c.beginPath(); c.rect(-200, -200, 420, 230); c.clip();
+  shape(0, 0); c.fillStyle = color; c.fill(); c.clip();
+  c.globalAlpha = .35; c.globalCompositeOperation = 'multiply'; c.drawImage(PAPER, -150, -100, 300, 140);
+  c.restore();
+  c.restore();
+}
+
+function drawBat(c, x, y, s, flap, color = '#0a0714') {
+  const w = Math.sin(flap);
+  c.save(); c.translate(x, y); c.scale(s, s); c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(0, -4);
+  c.quadraticCurveTo(10, -6 - w * 10, 22, -4 - w * 16);
+  c.quadraticCurveTo(18, 2 - w * 6, 14, 3 - w * 2);
+  c.quadraticCurveTo(10, 1, 6, 5);
+  c.lineTo(0, 8); c.lineTo(-6, 5);
+  c.quadraticCurveTo(-10, 1, -14, 3 - w * 2);
+  c.quadraticCurveTo(-18, 2 - w * 6, -22, -4 - w * 16);
+  c.quadraticCurveTo(-10, -6 - w * 10, 0, -4);
+  c.fill();
+  c.beginPath(); c.moveTo(-3.5, -3); c.lineTo(-3, -9); c.lineTo(0, -5); c.lineTo(3, -9); c.lineTo(3.5, -3); c.fill();
+  c.restore();
+}
+
+/* =====================================================================
+   Casimir
+   ===================================================================== */
+const SKIN = '#f3e5dc', SKIN_SH = '#dcc6c4', HAIR = '#15111d', HAIR_HI = '#3d3557',
+      CAPE = '#141019', CAPE_HI = '#2c2537', LINING = '#b8202f', LINING_SH = '#7f1421', GOLD = '#d8a446',
+      VEST = '#2b1f36';
+
+// front view, sitting. (x,y) = centre of the head; head radius ≈ 100*s
+function drawCasimirFront(c, x, y, s, st) {
+  c.save(); c.translate(x, y + (st.dy || 0)); c.scale(s, s);
+  c.lineCap = 'round'; c.lineJoin = 'round';
+
+  // cape mass behind the shoulders
+  c.fillStyle = CAPE;
+  c.beginPath();
+  c.moveTo(-70, 100); c.bezierCurveTo(-150, 110, -188, 170, -205, 380);
+  c.lineTo(205, 380); c.bezierCurveTo(188, 170, 150, 110, 70, 100); c.closePath(); c.fill();
+
+  // tall standing collar, red lining facing us
+  for (const sd of [-1, 1]) {
+    c.save(); c.scale(sd, 1);
+    c.fillStyle = CAPE;
+    c.beginPath(); c.moveTo(46, 104); c.bezierCurveTo(95, 60, 150, 8, 182, -32);
+    c.bezierCurveTo(190, 30, 172, 98, 130, 142); c.closePath(); c.fill();
+    c.fillStyle = LINING;
+    c.beginPath(); c.moveTo(56, 104); c.bezierCurveTo(98, 66, 146, 20, 171, -14);
+    c.bezierCurveTo(173, 40, 160, 94, 124, 130); c.closePath(); c.fill();
+    c.globalAlpha = .55; c.fillStyle = LINING_SH;
+    c.beginPath(); c.moveTo(58, 106); c.bezierCurveTo(92, 82, 122, 58, 152, 26);
+    c.bezierCurveTo(134, 76, 112, 102, 92, 126); c.closePath(); c.fill();
+    c.restore();
+  }
+
+  // torso: vest + shirt
+  c.fillStyle = VEST;
+  c.beginPath(); c.moveTo(-46, 96); c.lineTo(46, 96);
+  c.bezierCurveTo(90, 160, 110, 260, 112, 380); c.lineTo(-112, 380);
+  c.bezierCurveTo(-110, 260, -90, 160, -46, 96); c.closePath(); c.fill();
+  c.fillStyle = '#efe6e0';
+  c.beginPath(); c.moveTo(-34, 98); c.lineTo(34, 98); c.lineTo(0, 192); c.closePath(); c.fill();
+  c.fillStyle = GOLD;
+  for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(0, 218 + i * 36, 5, 0, TAU); c.fill(); }
+
+  // cape fronts over the shoulders, red edge
+  for (const sd of [-1, 1]) {
+    c.save(); c.scale(sd, 1);
+    c.fillStyle = CAPE;
+    c.beginPath(); c.moveTo(40, 100); c.bezierCurveTo(112, 100, 162, 132, 180, 192);
+    c.lineTo(208, 380); c.lineTo(98, 380); c.bezierCurveTo(94, 262, 78, 170, 40, 100); c.closePath(); c.fill();
+    c.strokeStyle = LINING; c.lineWidth = 9;
+    c.beginPath(); c.moveTo(44, 106); c.bezierCurveTo(80, 172, 96, 262, 101, 380); c.stroke();
+    c.strokeStyle = CAPE_HI; c.lineWidth = 6; c.globalAlpha = .8;
+    c.beginPath(); c.moveTo(96, 118); c.bezierCurveTo(140, 126, 165, 152, 173, 192); c.stroke();
+    c.restore();
+  }
+
+  // neck, clasps, bow
+  c.fillStyle = SKIN_SH; c.fillRect(-24, 58, 48, 46);
+  c.strokeStyle = GOLD; c.lineWidth = 2.5;
+  c.beginPath(); c.moveTo(-44, 112); c.quadraticCurveTo(0, 130, 44, 112); c.stroke();
+  for (const sd of [-1, 1]) {
+    c.fillStyle = GOLD; c.beginPath(); c.arc(sd * 46, 110, 9, 0, TAU); c.fill();
+    c.fillStyle = '#f6d891'; c.beginPath(); c.arc(sd * 46 - 2, 107, 3, 0, TAU); c.fill();
+  }
+  c.fillStyle = LINING;
+  c.beginPath(); c.moveTo(0, 104); c.lineTo(-22, 94); c.lineTo(-22, 116); c.closePath();
+  c.moveTo(0, 104); c.lineTo(22, 94); c.lineTo(22, 116); c.closePath(); c.fill();
+  c.beginPath(); c.arc(0, 104, 5.5, 0, TAU); c.fill();
+
+  // ---- head (tilts around the neck)
+  c.save();
+  c.translate(0, 80); c.rotate(st.tilt || 0); c.translate(0, -80);
+
+  for (const sd of [-1, 1]) { // pointed ears
+    c.save(); c.scale(sd, 1);
+    c.fillStyle = SKIN;
+    c.beginPath(); c.moveTo(88, -18); c.quadraticCurveTo(128, -40, 152, -60);
+    c.quadraticCurveTo(140, -10, 118, 22); c.quadraticCurveTo(100, 38, 88, 28); c.closePath(); c.fill();
+    c.fillStyle = '#e8baba';
+    c.beginPath(); c.moveTo(97, -8); c.quadraticCurveTo(122, -28, 139, -43);
+    c.quadraticCurveTo(127, -6, 111, 14); c.closePath(); c.fill();
+    c.restore();
+  }
+  c.fillStyle = SKIN;
+  c.beginPath(); c.moveTo(0, -112);
+  c.bezierCurveTo(62, -112, 98, -70, 98, -6); c.bezierCurveTo(98, 52, 58, 100, 0, 102);
+  c.bezierCurveTo(-58, 100, -98, 52, -98, -6); c.bezierCurveTo(-98, -70, -62, -112, 0, -112); c.fill();
+
+  for (const sd of [-1, 1]) { // cheeks
+    const g = c.createRadialGradient(sd * 58, 42, 0, sd * 58, 42, 28);
+    g.addColorStop(0, 'rgba(236,140,150,.55)'); g.addColorStop(1, 'rgba(236,140,150,0)');
+    c.fillStyle = g; c.fillRect(sd * 58 - 30, 12, 60, 60);
+  }
+
+  const lx = (st.lx || 0) * 7, ly = (st.ly || 0) * 6, b = clamp(st.blink || 0), w = st.brow || 0;
+  for (const sd of [-1, 1]) {
+    const ex = sd * 38, ey = 4;
+    c.fillStyle = '#fffaf4'; ellipse(c, ex, ey, 21, 25); c.fill();
+    c.save(); ellipse(c, ex, ey, 21, 25); c.clip();
+    c.fillStyle = '#6c2333'; c.beginPath(); c.arc(ex + lx, ey + ly + 2, 15, 0, TAU); c.fill();
+    c.fillStyle = '#22111a'; c.beginPath(); c.arc(ex + lx, ey + ly + 2, 10, 0, TAU); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(ex + lx - 5, ey + ly - 5, 5, 0, TAU); c.fill();
+    c.beginPath(); c.arc(ex + lx + 5, ey + ly + 7, 2.3, 0, TAU); c.fill();
+    if (b > 0) { c.fillStyle = SKIN; c.fillRect(ex - 24, ey - 27, 48, 52 * b); }
+    c.restore();
+    c.strokeStyle = '#1a1220'; c.lineWidth = 4.5;
+    c.beginPath(); c.ellipse(ex, ey + 25 * b, 22, Math.max(1, 26 * (1 - b)), 0, Math.PI * 1.06, Math.PI * 1.94); c.stroke();
+    c.lineWidth = 3; c.beginPath(); c.moveTo(sd * 21, ey - 10 + 20 * b); c.lineTo(sd * 29, ey - 16 + 20 * b); c.stroke();
+    c.strokeStyle = HAIR; c.lineWidth = 6;
+    c.beginPath(); c.moveTo(sd * 18, -34 - w * 11); c.quadraticCurveTo(sd * 38, -45 - w * 2, sd * 58, -36 + w * 5); c.stroke();
+  }
+  c.strokeStyle = 'rgba(170,115,125,.85)'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(-5, 34); c.quadraticCurveTo(0, 40, 5, 34); c.stroke();
+
+  const m = clamp(st.mouth || 0), sm = st.smile == null ? 1 : st.smile;
+  if (m < 1) { // gentle smile with two tiny fangs
+    c.globalAlpha = 1 - m;
+    c.strokeStyle = '#5a2430'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(-18, 56); c.quadraticCurveTo(0, 56 + 14 * sm, 18, 56); c.stroke();
+    const ly0 = 56 + 5.6 * sm;
+    c.fillStyle = '#fff';
+    c.beginPath(); c.moveTo(-12, ly0 - .5); c.lineTo(-8, ly0 + 8); c.lineTo(-5, ly0 + 1); c.closePath();
+    c.moveTo(12, ly0 - .5); c.lineTo(8, ly0 + 8); c.lineTo(5, ly0 + 1); c.closePath(); c.fill();
+    c.globalAlpha = 1;
+  }
+  if (m > 0) { // small surprised "o"
+    c.globalAlpha = m;
+    c.fillStyle = '#5a1f2c'; ellipse(c, 0, 62, 9 + 2 * m, 11 + 2 * m); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.moveTo(-8, 51); c.lineTo(-5, 58); c.lineTo(-2, 51); c.closePath();
+    c.moveTo(8, 51); c.lineTo(5, 58); c.lineTo(2, 51); c.closePath(); c.fill();
+    c.globalAlpha = 1;
+  }
+
+  // hair with a sharp widow's peak
+  c.fillStyle = HAIR;
+  c.beginPath();
+  c.moveTo(-100, 6);
+  c.bezierCurveTo(-120, -62, -94, -140, -20, -150);
+  c.bezierCurveTo(8, -166, 30, -160, 42, -152);
+  c.bezierCurveTo(102, -140, 122, -62, 100, 6);
+  c.lineTo(91, -22);
+  c.bezierCurveTo(80, -50, 54, -67, 27, -64);
+  c.quadraticCurveTo(10, -60, 0, -26);
+  c.quadraticCurveTo(-10, -60, -27, -64);
+  c.bezierCurveTo(-54, -67, -80, -50, -91, -22);
+  c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(-8, -150); c.quadraticCurveTo(8, -188, 36, -182); c.quadraticCurveTo(16, -172, 14, -151); c.fill();
+  c.strokeStyle = HAIR_HI; c.lineWidth = 7;
+  c.beginPath(); c.moveTo(-74, -96); c.quadraticCurveTo(-58, -128, -22, -136); c.stroke();
+  c.lineWidth = 4; c.beginPath(); c.moveTo(-22, -80); c.quadraticCurveTo(-12, -72, -6, -50); c.stroke();
+  c.restore(); // head
+
+  c.restore();
+}
+
+// sleeve + hand resting on the desk
+function drawForearm(c, x0, y0, x1, y1, w = 34) {
+  c.save(); c.lineCap = 'round';
+  c.strokeStyle = '#0f0b15'; c.lineWidth = w + 6;
+  c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  c.strokeStyle = VEST; c.lineWidth = w;
+  c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  c.restore();
+}
+function drawHand(c, x, y, s, rot) {
+  c.save(); c.translate(x, y); c.rotate(rot); c.scale(s, s);
+  c.fillStyle = '#efe6e0'; ellipse(c, -16, 0, 9, 17); c.fill();
+  c.fillStyle = SKIN; ellipse(c, 5, 0, 19, 15); c.fill();
+  c.strokeStyle = 'rgba(170,115,125,.6)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(13, -6); c.lineTo(22, -5); c.moveTo(14, 1); c.lineTo(23, 2); c.stroke();
+  c.restore();
+}
+// x,y = nib tip; ang = direction from the nib towards the feather
+function drawQuill(c, x, y, ang, len = 150) {
+  c.save(); c.translate(x, y); c.rotate(ang);
+  c.fillStyle = '#f4efe6';
+  c.beginPath(); c.moveTo(len * .25, 0);
+  c.bezierCurveTo(len * .45, -19, len * .85, -21, len, -4);
+  c.bezierCurveTo(len * .85, 11, len * .5, 12, len * .25, 0); c.fill();
+  c.strokeStyle = 'rgba(150,130,120,.5)'; c.lineWidth = 1;
+  for (let i = 0; i < 9; i++) { const u = .32 + i * .07; c.beginPath(); c.moveTo(len * u, -1); c.lineTo(len * (u + .05), -12 + (i % 2) * 2); c.stroke(); }
+  c.fillStyle = LINING;
+  c.beginPath(); c.moveTo(len * .86, -7); c.bezierCurveTo(len * .93, -11, len * .98, -8, len, -4);
+  c.bezierCurveTo(len * .95, 4, len * .9, 5, len * .86, -7); c.fill();
+  c.strokeStyle = '#d9cbb6'; c.lineWidth = 2.5;
+  c.beginPath(); c.moveTo(0, 0); c.lineTo(len, -3); c.stroke();
+  c.fillStyle = '#2a1a22';
+  c.beginPath(); c.moveTo(0, 0); c.lineTo(15, -3.5); c.lineTo(15, 3.5); c.closePath(); c.fill();
+  c.restore();
+}
+
+// back view, sitting in an embrasure. (x,y) = centre of the head
+function drawCasimirBack(c, x, y, s, t, st) {
+  c.save(); c.translate(x, y); c.scale(s, s);
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  const wind = Math.sin(t * 2.1) * .6 + Math.sin(t * 3.7 + 1) * .4;
+  const ledge = st.ledge; // local y of the stone ledge
+
+
+  // cape: covers his back and hangs over the inner face of the parapet
+  const pts = [[0, 78], [60, 84], [118, 118], [156, 190], [170, ledge - 10], [182 + wind * 7, ledge + 70]];
+  const hemN = 7;
+  for (let i = 0; i <= hemN; i++) {
+    const u = i / hemN, hx = lerp(186 + wind * 9, -186 + wind * 5, u);
+    pts.push([hx, ledge + 150 + Math.sin(u * 9 + t * 3.2) * 9 + (i % 2) * 8]);
+  }
+  pts.push([-182 + wind * 4, ledge + 70], [-170, ledge - 10], [-156, 190], [-118, 118], [-60, 84]);
+  c.fillStyle = CAPE; smoothPath(c, pts); c.fill();
+  // red lining flipping at the corners in the wind
+  for (const sd of [-1, 1]) {
+    const k = .6 + .4 * Math.sin(t * 2.6 + sd);
+    c.fillStyle = LINING;
+    c.beginPath(); c.moveTo(sd * 168, ledge + 40);
+    c.quadraticCurveTo(sd * (196 + wind * 6), ledge + 110, sd * 186, ledge + 156);
+    c.quadraticCurveTo(sd * (150 - 20 * k), ledge + 150, sd * (120 - 10 * k), ledge + 158);
+    c.quadraticCurveTo(sd * 150, ledge + 100, sd * 168, ledge + 40); c.fill();
+  }
+  // fold where the cape goes over the ledge
+  c.strokeStyle = CAPE_HI; c.lineWidth = 6;
+  c.beginPath(); c.moveTo(-164, ledge + 2); c.quadraticCurveTo(0, ledge + 16, 164, ledge + 2); c.stroke();
+  c.lineWidth = 4; c.globalAlpha = .7;
+  c.beginPath(); c.moveTo(-60, 120); c.quadraticCurveTo(-80, 200, -90, ledge - 20); c.stroke();
+  c.beginPath(); c.moveTo(50, 124); c.quadraticCurveTo(70, 210, 76, ledge - 20); c.stroke();
+  c.globalAlpha = 1;
+  for (const sd of [-1, 1]) { c.fillStyle = '#bfaab4'; ellipse(c, sd * 176, ledge - 4, 15, 11); c.fill(); }
+
+  // head from behind, tilted up to the sky
+  const tilt = st.tilt || 0;
+  c.save(); c.translate(0, -tilt * 6);
+  for (const sd of [-1, 1]) {
+    c.save(); c.scale(sd, 1);
+    c.fillStyle = '#d9c8cf';
+    c.beginPath(); c.moveTo(86, -10); c.quadraticCurveTo(128, -36, 150, -62);
+    c.quadraticCurveTo(140, -8, 116, 24); c.quadraticCurveTo(98, 34, 86, 24); c.closePath(); c.fill();
+    c.fillStyle = '#bda7b2';
+    c.beginPath(); c.moveTo(92, 0); c.quadraticCurveTo(122, -24, 138, -44); c.quadraticCurveTo(126, -8, 110, 14); c.closePath(); c.fill();
+    c.restore();
+  }
+  const hairPath = () => {
+  c.beginPath();
+  c.moveTo(0, -150 + tilt * 6);
+  c.bezierCurveTo(70, -150, 106, -96, 102, -24);
+  c.bezierCurveTo(100, 30, 80, 70, 52, 84);
+  c.lineTo(36, 72); c.lineTo(22, 92); c.lineTo(6, 76); c.lineTo(-10, 94); c.lineTo(-24, 74); c.lineTo(-40, 88); c.lineTo(-52, 84);
+  c.bezierCurveTo(-80, 70, -100, 30, -102, -24);
+  c.bezierCurveTo(-106, -96, -70, -150, 0, -150 + tilt * 6);
+  };
+  c.fillStyle = HAIR; hairPath(); c.fill();
+  c.beginPath(); c.moveTo(-6, -146); c.quadraticCurveTo(14, -186, 40, -176); c.quadraticCurveTo(20, -168, 18, -146); c.fill();
+  c.strokeStyle = HAIR_HI; c.lineWidth = 6;
+  c.beginPath(); c.moveTo(-70, -100); c.quadraticCurveTo(-40, -138, 10, -140); c.stroke();
+  if (st.rim > 0) { // warm light from the lantern above, on the crown and the ear tips
+    c.save(); hairPath(); c.clip();
+    const g = c.createRadialGradient(20, -250, 40, 20, -250, 200);
+    g.addColorStop(0, `rgba(255,200,120,${.5 * st.rim})`); g.addColorStop(1, 'rgba(255,200,120,0)');
+    c.fillStyle = g; c.fillRect(-120, -200, 240, 220);
+    const e = c.createLinearGradient(0, -150, 0, -50);
+    e.addColorStop(0, `rgba(255,214,140,${.85 * st.rim})`); e.addColorStop(1, 'rgba(255,214,140,0)');
+    c.strokeStyle = e; c.lineWidth = 7; hairPath(); c.stroke();
+    c.restore();
+    c.globalAlpha = st.rim * .8; c.strokeStyle = '#ffcf7d'; c.lineWidth = 3;
+    for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(sd * 100, -20); c.quadraticCurveTo(sd * 128, -40, sd * 148, -60); c.stroke(); }
+    c.globalAlpha = 1;
+  }
+  c.restore();
+
+  // high collar seen from behind (black outside, red rim)
+  c.fillStyle = CAPE;
+  c.beginPath(); c.moveTo(-108, 40); c.quadraticCurveTo(-40, 78, 0, 86); c.quadraticCurveTo(40, 78, 108, 40);
+  c.quadraticCurveTo(130, 80, 96, 112); c.lineTo(-96, 112); c.quadraticCurveTo(-130, 80, -108, 40); c.fill();
+  c.strokeStyle = LINING; c.lineWidth = 4;
+  c.beginPath(); c.moveTo(-108, 40); c.quadraticCurveTo(-40, 78, 0, 86); c.quadraticCurveTo(40, 78, 108, 40); c.stroke();
+  c.restore();
+}
+
+/* =====================================================================
+   Moth & flame
+   ===================================================================== */
+function drawMoth(c, x, y, s, flap, ang, alpha = 1, warm = 0) {
+  c.save(); c.translate(x, y); c.rotate(ang); c.scale(s, s); c.globalAlpha = alpha;
+  const f = .22 + .78 * Math.abs(Math.cos(flap));
+  const fore = mix('#e6dac1', '#ffd47a', warm), hind = mix('#bba985', '#ff9d4a', warm), spot = mix('#7a5f46', '#c4561f', warm);
+  for (const sd of [-1, 1]) {
+    c.save(); c.scale(sd * f, 1);
+    c.fillStyle = hind;
+    c.beginPath(); c.moveTo(4, 4); c.bezierCurveTo(30, 6, 54, 22, 47, 44); c.bezierCurveTo(36, 58, 14, 46, 4, 18); c.closePath(); c.fill();
+    c.fillStyle = fore;
+    c.beginPath(); c.moveTo(4, -6); c.bezierCurveTo(26, -30, 70, -42, 93, -27); c.bezierCurveTo(89, -6, 60, 12, 6, 10); c.closePath(); c.fill();
+    c.globalAlpha = alpha * .6; c.fillStyle = spot; ellipse(c, 56, -15, 8, 6); c.fill();
+    c.globalAlpha = alpha * .8; c.fillStyle = '#fffaf0'; ellipse(c, 57, -16, 3, 2.2); c.fill();
+    c.globalAlpha = alpha * .4; c.strokeStyle = spot; c.lineWidth = 1.3;
+    c.beginPath(); c.moveTo(8, -2); c.quadraticCurveTo(50, -14, 87, -25); c.stroke();
+    c.beginPath(); c.moveTo(8, 8); c.quadraticCurveTo(28, 18, 40, 38); c.stroke();
+    c.globalAlpha = alpha;
+    c.restore();
+  }
+  c.fillStyle = mix('#8d7a60', '#ffb347', warm); ellipse(c, 0, 9, 7, 22); c.fill();
+  c.fillStyle = mix('#d0bd98', '#fff0c0', warm); ellipse(c, 0, -11, 8, 9); c.fill();
+  c.strokeStyle = mix('#8d7a60', '#ffb347', warm); c.lineWidth = 1.7;
+  for (const sd of [-1, 1]) {
+    c.beginPath(); c.moveTo(sd * 3, -18); c.quadraticCurveTo(sd * 10, -34, sd * 21, -41); c.stroke();
+    for (let i = 1; i < 5; i++) {
+      const u = i / 5, ax = sd * (3 + 18 * u), ay = -18 - 23 * u;
+      c.beginPath(); c.moveTo(ax, ay); c.lineTo(ax + sd * 4, ay + 3); c.stroke();
+    }
+  }
+  c.restore();
+}
+
+// teardrop flame; base near (x, y+30*s), tip at (x, y-60*s)
+function drawFlame(c, x, y, s, t, seed = 0) {
+  const fl = 1 + .09 * noise1(t * 9, 4 + seed) + .04 * Math.sin(t * 23 + seed);
+  const sway = noise1(t * 5, 9 + seed) * 7;
+  c.save(); c.translate(x, y); c.scale(s, s * fl);
+  const g = c.createRadialGradient(0, 10, 2, 0, -4, 50);
+  g.addColorStop(0, '#fff7dc'); g.addColorStop(.35, '#ffd66e'); g.addColorStop(.75, '#ff8a3d'); g.addColorStop(1, 'rgba(220,70,40,0.15)');
+  c.fillStyle = g;
+  c.beginPath(); c.moveTo(sway, -62);
+  c.bezierCurveTo(22 + sway * .5, -24, 31, 6, 20, 25); c.bezierCurveTo(10, 40, -10, 40, -20, 25);
+  c.bezierCurveTo(-31, 6, -22 + sway * .5, -24, sway, -62); c.fill();
+  c.fillStyle = 'rgba(255,255,242,.92)';
+  c.beginPath(); c.moveTo(sway * .6, -24); c.bezierCurveTo(10, -6, 12, 12, 0, 23); c.bezierCurveTo(-12, 12, -10, -6, sway * .6, -24); c.fill();
+  c.restore();
+}
+
+/* =====================================================================
+   S1 — the castle at night, under a paper moon
+   ===================================================================== */
+const S1_STARS = makeStars(3, 170, 0, 0, W, 900);
+const WIN = [720, 668]; // Casimir's window, in scene coordinates
+
+function hillPath(c, y0, amp, freq, phase, seed) {
+  c.beginPath(); c.moveTo(-60, H + 60);
+  for (let x = -60; x <= W + 60; x += 18) {
+    c.lineTo(x, y0 + Math.sin(x * freq + phase) * amp + noise1(x * .012, seed) * amp * .6);
+  }
+  c.lineTo(W + 60, H + 60); c.closePath();
+}
+function paperLayer(c, build, color, rim = 'rgba(196,186,255,.16)', blur = 22) {
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = blur; c.shadowOffsetY = 8;
+  build(); c.fillStyle = color; c.fill();
+  c.restore();
+  build(); c.strokeStyle = rim; c.lineWidth = 2.5; c.stroke();
+}
+function pine(c, x, y, h, color) {
+  c.fillStyle = color; c.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const ty = y - h + i * h * .27, bw = h * (.2 + i * .12);
+    c.moveTo(x, ty); c.lineTo(x + bw, ty + h * .42); c.lineTo(x - bw, ty + h * .42); c.closePath();
+  }
+  c.fill(); c.fillRect(x - h * .04, y - h * .16, h * .08, h * .22);
+}
+// crenellated top (odd merlon count), body continues down to yBottom
+function crenBlock(c, x0, x1, y, mh, yBottom, mw = 26) {
+  let n = Math.max(1, Math.round((x1 - x0) / mw)); if (n % 2 === 0) n++;
+  const w = (x1 - x0) / n;
+  c.moveTo(x0, yBottom); c.lineTo(x0, y - mh);
+  for (let i = 0; i < n; i++) {
+    const xb = x0 + (i + 1) * w;
+    if (i % 2 === 0) { c.lineTo(xb, y - mh); if (i < n - 1) c.lineTo(xb, y); }
+    else { c.lineTo(xb, y); c.lineTo(xb, y - mh); }
+  }
+  c.lineTo(x1, yBottom); c.closePath();
+}
+function archPath(c, x, y, w, h) { // centred at x,y
+  c.beginPath(); c.moveTo(x - w / 2, y + h / 2); c.lineTo(x - w / 2, y - h / 2 + w / 2);
+  c.arc(x, y - h / 2 + w / 2, w / 2, Math.PI, 0); c.lineTo(x + w / 2, y + h / 2); c.closePath();
+}
+function cone(c, cx, base, w, h, roof, roofHi, eave) {
+  c.fillStyle = roof;
+  c.beginPath(); c.moveTo(cx - w, base);
+  c.quadraticCurveTo(cx - w * .32, base - h * .42, cx, base - h);
+  c.quadraticCurveTo(cx + w * .32, base - h * .42, cx + w, base); c.closePath(); c.fill();
+  c.fillStyle = roofHi;
+  c.beginPath(); c.moveTo(cx, base - h); c.quadraticCurveTo(cx + w * .32, base - h * .42, cx + w, base);
+  c.lineTo(cx + w * .28, base); c.closePath(); c.fill();
+  c.fillStyle = eave; c.fillRect(cx - w - 2, base - 2, w * 2 + 4, 11);
+}
+
+function drawCastle(c, t) {
+  const body = '#231b42', dark = '#130e2a';
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,.55)'; c.shadowBlur = 26; c.shadowOffsetY = 8;
+  c.fillStyle = body; c.beginPath();
+  crenBlock(c, 380, 700, 772, 20, 1080);
+  crenBlock(c, 300, 392, 648, 0, 1080);
+  crenBlock(c, 668, 772, 588, 0, 1080);
+  crenBlock(c, 495, 585, 566, 0, 790);
+  c.fill();
+  c.restore();
+  // moonlit right edges + faint stone courses
+  c.strokeStyle = 'rgba(200,190,255,.22)'; c.lineWidth = 3;
+  c.beginPath();
+  c.moveTo(772, 590); c.lineTo(772, 1060); c.moveTo(392, 650); c.lineTo(392, 772);
+  c.moveTo(585, 568); c.lineTo(585, 752); c.moveTo(700, 760); c.lineTo(700, 1060); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.035)'; c.lineWidth = 2;
+  c.beginPath();
+  for (let y = 800; y < 1060; y += 26) { c.moveTo(380, y); c.lineTo(700, y); }
+  for (let y = 680; y < 1060; y += 26) { c.moveTo(300, y); c.lineTo(392, y); c.moveTo(668, y - 60); c.lineTo(772, y - 60); }
+  c.stroke();
+
+  const roof = '#3b1d40', roofHi = '#5a2a52';
+  cone(c, 346, 648, 60, 132, roof, roofHi, dark);
+  cone(c, 720, 588, 68, 152, roof, roofHi, dark);
+  cone(c, 540, 566, 58, 164, roof, roofHi, dark);
+  // flag on the central tower
+  c.strokeStyle = '#120d24'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(540, 404); c.lineTo(540, 346); c.stroke();
+  const wv = Math.sin(t * 5);
+  c.fillStyle = LINING;
+  c.beginPath(); c.moveTo(541, 348);
+  c.quadraticCurveTo(562, 344 + wv * 5, 590, 356 + wv * 3);
+  c.quadraticCurveTo(564, 364 - wv * 4, 541, 370); c.closePath(); c.fill();
+
+  // windows
+  const lit = (x, y, w, h, k) => {
+    const fl = .82 + .18 * noise1(t * 6 + x, 2);
+    glow(c, x, y, w * 3.2, 'rgba(255,186,90,0.5)', k * fl);
+    archPath(c, x, y, w, h); c.fillStyle = mix('#c98a3c', '#ffd27a', fl); c.fill();
+  };
+  const dim = (x, y, w, h) => { archPath(c, x, y, w, h); c.fillStyle = '#0c0920'; c.fill(); };
+  lit(430, 846, 18, 30, .7); dim(480, 846, 18, 30); lit(600, 846, 18, 30, .6); dim(650, 846, 18, 30);
+  lit(346, 730, 16, 28, .55); dim(540, 640, 16, 30); lit(540, 700, 14, 24, .4); dim(346, 820, 16, 28);
+  // Casimir's window: brightest, with a tiny silhouette
+  const [wx, wy] = WIN;
+  const fl = .85 + .15 * noise1(t * 8, 5);
+  glow(c, wx, wy, 140, 'rgba(255,190,100,0.55)', fl);
+  archPath(c, wx, wy, 38, 56); c.fillStyle = mix('#ffc163', '#ffe4a6', fl); c.fill();
+  c.save(); archPath(c, wx, wy, 38, 56); c.clip();
+  c.fillStyle = 'rgba(40,20,30,.85)';
+  c.beginPath(); c.arc(wx - 5, wy + 16, 7, 0, TAU); c.fill();
+  c.beginPath(); c.moveTo(wx - 12, wy + 13); c.lineTo(wx - 16, wy + 7); c.lineTo(wx - 9, wy + 11);
+  c.moveTo(wx + 2, wy + 13); c.lineTo(wx + 6, wy + 7); c.lineTo(wx - 1, wy + 11); c.fill();
+  c.fillRect(wx - 16, wy + 22, 22, 10);
+  c.restore();
+  c.strokeStyle = dark; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(wx, wy - 26); c.lineTo(wx, wy + 28); c.moveTo(wx - 19, wy + 2); c.lineTo(wx + 19, wy + 2); c.stroke();
+  c.fillStyle = dark; c.fillRect(wx - 25, wy + 27, 50, 6);
+  // gate
+  archPath(c, 540, 1010, 74, 112); c.fillStyle = '#0a0717'; c.fill();
+  c.strokeStyle = 'rgba(255,190,110,.25)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(540, 962); c.lineTo(540, 1064); c.stroke();
+}
+
+function drawScene1(c, t) {
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const [WX, WY] = WIN;
+  const zIn = lerp(1, 1.1, E.sine(inv(0, 2.4, t)));
+  const push = E.in(inv(2.4, 3.6, t));
+  const z = zIn * Math.pow(12, push);
+  const m = E.io(inv(2.1, 3.4, t));
+  const sx = lerp(WX, 540, m), sy = lerp(WY, 640, m);
+  const cam = k => { const zk = 1 + (z - 1) * k; c.setTransform(1, 0, 0, 1, 0, 0); c.translate(sx, sy); c.scale(zk, zk); c.translate(-WX, -WY); };
+
+  drawSky(c, [[0, '#0b0921'], [.45, '#1b1742'], [.75, '#30275e'], [1, '#463669']]);
+  cam(.12); drawStars(c, S1_STARS, t);
+  cam(.25);
+  drawCloud(c, 190 + t * 14, 430, 1.0, '#352c69');
+  drawCloud(c, 990 - t * 9, 650, .74, '#2f275f');
+  drawPaperMoon(c, 832, 404, 150, t, 1.7);
+  cam(.32);
+  drawCloud(c, 700 + t * 12, 534, .9, '#43397a');
+
+  cam(.6);
+  paperLayer(c, () => hillPath(c, 930, 26, .006, 1.2, 1), '#2b2356');
+  // tiny village lights on the far hills
+  for (let i = 0; i < 9; i++) {
+    const x = 70 + i * 117 + (i % 3) * 21, y = 950 + Math.sin(x * .006 + 1.2) * 26 + 18;
+    c.fillStyle = `rgba(255,205,120,${.45 + .3 * Math.sin(t * 3 + i)})`; c.fillRect(x, y, 3, 3);
+  }
+  cam(.8);
+  paperLayer(c, () => hillPath(c, 1000, 30, .0045, 3.1, 2), '#211a47');
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const fog = c.createLinearGradient(0, 900, 0, 1120);
+  fog.addColorStop(0, 'rgba(120,100,190,0)'); fog.addColorStop(.5, 'rgba(120,100,190,.08)'); fog.addColorStop(1, 'rgba(120,100,190,0)');
+  c.fillStyle = fog; c.fillRect(0, 880, W, 260);
+
+  cam(1);
+  for (let i = 0; i < 3; i++) { // bats circling the towers
+    const a = t * 1.25 + i * 2.1;
+    drawBat(c, 540 + Math.cos(a) * (190 + i * 46), 500 + Math.sin(a) * 58 - i * 34, 1 - i * .18, t * 15 + i * 1.7);
+  }
+  drawCastle(c, t);
+  paperLayer(c, () => {
+    c.beginPath(); c.moveTo(60, H + 40);
+    c.bezierCurveTo(240, 1070, 380, 1018, 540, 1012);
+    c.bezierCurveTo(700, 1018, 840, 1070, 1020, H + 40); c.closePath();
+  }, '#120d27');
+
+  cam(1.3);
+  paperLayer(c, () => hillPath(c, 1196, 22, .008, .4, 4), '#0d0a1f', 'rgba(196,186,255,.1)');
+  for (const [x, h] of [[40, 150], [110, 110], [175, 170], [250, 90], [840, 120], [905, 175], [975, 135], [1045, 160]]) {
+    pine(c, x, 1215 + Math.sin(x * .008 + .4) * 22, h, '#0a0818');
+  }
+
+  // the window light swallows the frame as we fly in
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const wash = E.sine(inv(2.7, 3.3, t));
+  if (wash > 0) { c.fillStyle = `rgba(255,198,120,${wash * .9})`; c.fillRect(0, 0, W, H); }
+}
+
+/* =====================================================================
+   S2/S3 — Casimir's room
+   ===================================================================== */
+// Shadow outlines: all start at top-centre and run clockwise, then get
+// resampled to the same point count so they can morph into each other.
+const N_SH = 280;
+const COAT_SH = resample(mirror([
+  [0, -270], [30, -262], [52, -238], [60, -205], [100, -190], [125, -160], [132, -100],
+  [138, 0], [146, 100], [156, 190], [150, 222], [100, 228], [50, 222], [0, 230]]), N_SH);
+const MONSTER_SH = resample([
+  // right side: horn, ear spike, raised clawed arm, jagged hem
+  [0, -250], [36, -262], [62, -298], [86, -352], [100, -404], [112, -346], [108, -290], [100, -248],
+  [122, -214], [130, -180], [170, -200], [142, -146], [178, -122], [204, -168], [214, -232], [222, -290],
+  [236, -334], [244, -290], [258, -322], [260, -274], [280, -284], [266, -242], [278, -222], [244, -210],
+  [232, -160], [214, -96], [196, -56], [206, 20], [220, 110], [232, 198], [214, 240], [190, 206],
+  [166, 256], [138, 214], [110, 258], [82, 220], [54, 256], [26, 216], [0, 252],
+  // left side: an arm reaching out towards Casimir
+  [-26, 216], [-54, 256], [-82, 220], [-110, 258], [-138, 214], [-166, 256], [-190, 206], [-214, 240],
+  [-232, 198], [-220, 110], [-206, 20], [-196, -50], [-246, -46], [-292, -40], [-326, -30], [-352, -38],
+  [-336, -50], [-366, -60], [-340, -68], [-360, -86], [-326, -82], [-296, -88], [-252, -102], [-206, -124],
+  [-178, -122], [-142, -146], [-170, -200], [-130, -180], [-122, -214], [-100, -248], [-108, -290],
+  [-112, -346], [-100, -404], [-86, -352], [-62, -298], [-36, -262]], N_SH);
+const MOTH_SH = resample(mirror([
+  [0, -40], [6, -48], [18, -72], [12, -46], [14, -30], [40, -50], [82, -56], [108, -40], [104, -14],
+  [78, 4], [94, 22], [88, 48], [62, 58], [32, 42], [12, 30], [6, 56], [0, 64]]), N_SH);
+const SH_POS = { coat: [884, 548, 1.0], monster: [880, 452, 1.15], moth: [690, 356, 1.0] };
+
+// handwriting of the name "Lumi" (units; baseline y = 0)
+const NAME_PTS = [
+  [0, -28], [3, -35], [8, -33], [6, -22], [2, -8], [-2, 0], [-4, -3], [1, -3], [8, 0], [14, -2],
+  [17, -12], [16, -4], [19, 0], [24, -4], [27, -12], [26, -4], [29, 0], [32, -2],
+  [34, -10], [36, -13], [37, -6], [36, 0], [38, -8], [42, -13], [45, -9], [44, 0], [46, -8], [50, -13],
+  [53, -9], [52, -2], [55, 0], [58, -3], [60, -12], [59, -4], [61, 0], [65, -3]];
+const NAME_X = 414, NAME_Y = 994, NAME_SX = 1.85, NAME_SY = 1.12;
+const toPage = ([u, v]) => [NAME_X + u * NAME_SX, NAME_Y + v * NAME_SY];
+function withLengths(pts) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  return { pts, cum, total: cum[cum.length - 1] };
+}
+const NAME_MAIN = withLengths(catmull(NAME_PTS, 10).map(toPage));
+const NAME_DOT = toPage([60.6, -20]);
+// stroke the first `frac` of a polyline; returns the pen tip
+function strokePartial(c, path, frac) {
+  const L = path.total * clamp(frac);
+  const { pts, cum } = path;
+  c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
+  let tip = pts[0];
+  for (let i = 1; i < pts.length; i++) {
+    if (cum[i] <= L) { c.lineTo(pts[i][0], pts[i][1]); tip = pts[i]; continue; }
+    const f = (L - cum[i - 1]) / (cum[i] - cum[i - 1] || 1);
+    tip = [lerp(pts[i - 1][0], pts[i][0], f), lerp(pts[i - 1][1], pts[i][1], f)];
+    c.lineTo(tip[0], tip[1]); break;
+  }
+  c.stroke();
+  return tip;
+}
+
+const HEAD = [330, 600]; // Casimir's head in the room
+const FLAME = [662, 878]; // candle flame
+function windowPath(c, begin = true) {
+  if (begin) c.beginPath();
+  c.moveTo(70, 500); c.lineTo(70, 270); c.arc(170, 270, 100, Math.PI, 0); c.lineTo(270, 500); c.closePath();
+}
+
+// static layers, rendered once
+const ROOM_A = mkCanvas(W, H), ROOM_B = mkCanvas(W, H), ROOM_C = mkCanvas(W, H);
+(function buildRoomStatics() {
+  let c = ROOM_A.getContext('2d');
+  c.fillStyle = '#3a2d50'; c.fillRect(0, 0, W, 1062);
+  for (let x = 0; x < W; x += 72) {
+    c.fillStyle = 'rgba(255,255,255,.028)'; c.fillRect(x, 0, 36, 830);
+    for (let y = 36; y < 820; y += 72) {
+      c.fillStyle = 'rgba(255,214,170,.07)';
+      c.beginPath(); c.moveTo(x + 18, y - 6); c.lineTo(x + 24, y); c.lineTo(x + 18, y + 6); c.lineTo(x + 12, y); c.closePath(); c.fill();
+    }
+  }
+  // wainscot + chair rail
+  c.fillStyle = '#2b1f33'; c.fillRect(0, 830, W, 232);
+  c.strokeStyle = 'rgba(255,255,255,.06)'; c.lineWidth = 3;
+  for (let x = 20; x < W; x += 180) c.strokeRect(x, 862, 150, 170);
+  c.fillStyle = '#4a3550'; c.fillRect(0, 818, W, 14);
+  c.fillStyle = '#1c1219'; c.fillRect(0, 1050, W, 14);
+  // floor planks
+  c.fillStyle = '#2c1c20'; c.fillRect(0, 1064, W, H - 1064);
+  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 2;
+  for (let y = 1064, i = 0; y < H; y += 46, i++) {
+    c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
+    for (let x = (i % 2) * 130; x < W; x += 260) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 46); c.stroke(); }
+  }
+  // window: frame, then cut the glass open so the live sky shows through
+  c.fillStyle = '#20141c';
+  c.beginPath(); c.moveTo(52, 516); c.lineTo(52, 270); c.arc(170, 270, 118, Math.PI, 0); c.lineTo(288, 516); c.closePath(); c.fill();
+  c.save(); c.globalCompositeOperation = 'destination-out'; windowPath(c); c.fill(); c.restore();
+  c.strokeStyle = '#20141c'; c.lineWidth = 9;
+  c.beginPath(); c.moveTo(170, 172); c.lineTo(170, 500); c.moveTo(70, 340); c.lineTo(270, 340); c.stroke();
+  c.lineWidth = 6; c.beginPath(); c.arc(170, 270, 50, Math.PI, 0); c.stroke();
+  c.fillStyle = '#3a2420'; c.fillRect(34, 500, 272, 20);
+  c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(34, 500, 272, 4);
+  // curtains
+  const curtain = (x0, x1, tieX) => {
+    c.fillStyle = '#7d1a28';
+    c.beginPath(); c.moveTo(x0, 150); c.lineTo(x1, 150);
+    c.quadraticCurveTo(x1 - 10, 330, tieX + 14, 430);
+    c.quadraticCurveTo(x1 + 10, 520, x1 + 8, 620); c.lineTo(x0 - 8, 620);
+    c.quadraticCurveTo(x0, 520, tieX - 14, 430);
+    c.quadraticCurveTo(x0 + 6, 330, x0, 150); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(30,5,10,.45)'; c.lineWidth = 5;
+    for (let k = 1; k < 3; k++) {
+      const fx = lerp(x0, x1, k / 3);
+      c.beginPath(); c.moveTo(fx, 156); c.quadraticCurveTo(lerp(fx, tieX, .8), 330, tieX, 430);
+      c.quadraticCurveTo(lerp(tieX, fx, .7), 520, lerp(fx, tieX, .2), 616); c.stroke();
+    }
+    c.strokeStyle = 'rgba(255,120,130,.18)'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(lerp(x0, x1, .25), 156); c.quadraticCurveTo(tieX - 6, 330, tieX - 4, 428); c.stroke();
+    c.fillStyle = GOLD; c.fillRect(tieX - 18, 424, 36, 10);
+  };
+  curtain(14, 96, 48); curtain(244, 326, 292);
+  c.strokeStyle = '#b58a3e'; c.lineWidth = 6;
+  c.beginPath(); c.moveTo(6, 148); c.lineTo(334, 148); c.stroke();
+  c.fillStyle = '#b58a3e';
+  c.beginPath(); c.arc(6, 148, 9, 0, TAU); c.arc(334, 148, 9, 0, TAU); c.fill();
+  // a small framed picture of a bat (his own drawing)
+  c.fillStyle = '#2a1a24'; c.fillRect(560, 196, 120, 96);
+  c.fillStyle = '#e9dcc0'; c.fillRect(570, 206, 100, 76);
+  drawBat(c, 620, 246, 2.2, .7, '#3a2a40');
+  c.fillStyle = '#c8323f'; c.beginPath(); c.arc(648, 222, 7, 0, TAU); c.fill();
+
+  // --- B: coat stand + coat
+  c = ROOM_B.getContext('2d');
+  c.lineCap = 'round';
+  c.strokeStyle = '#24160f'; c.lineWidth = 14;
+  c.beginPath(); c.moveTo(830, 330); c.lineTo(830, 1100); c.stroke();
+  c.lineWidth = 10;
+  c.beginPath(); c.moveTo(830, 1080); c.lineTo(770, 1124); c.moveTo(830, 1080); c.lineTo(892, 1124); c.moveTo(830, 1080); c.lineTo(836, 1132); c.stroke();
+  c.strokeStyle = 'rgba(255,220,180,.15)'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(834, 340); c.lineTo(834, 1090); c.stroke();
+  c.fillStyle = '#24160f'; c.beginPath(); c.arc(830, 322, 13, 0, TAU); c.fill();
+  c.strokeStyle = '#24160f'; c.lineWidth = 6;
+  c.beginPath(); c.moveTo(830, 352); c.quadraticCurveTo(800, 350, 798, 372); c.moveTo(830, 352); c.quadraticCurveTo(860, 350, 862, 372); c.stroke();
+  c.save(); c.translate(830, 615); c.scale(.9, .9);
+  smoothPath(c, COAT_SH); c.fillStyle = '#34444f'; c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.28)'; c.lineWidth = 6;
+  c.beginPath(); c.moveTo(0, -180); c.lineTo(0, 228); c.stroke();
+  c.beginPath(); c.moveTo(-96, -150); c.quadraticCurveTo(-108, 20, -112, 190); c.moveTo(96, -150); c.quadraticCurveTo(108, 20, 112, 190); c.stroke();
+  c.fillStyle = '#2a363f';
+  c.beginPath(); c.moveTo(-58, -205); c.quadraticCurveTo(0, -150, 58, -205); c.lineTo(40, -150); c.quadraticCurveTo(0, -120, -40, -150); c.closePath(); c.fill();
+  c.fillStyle = '#c9a25a';
+  for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(14, -110 + i * 70, 6, 0, TAU); c.fill(); }
+  c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 4;
+  c.strokeRect(-110, 40, 60, 46); c.strokeRect(50, 40, 60, 46);
+  c.restore();
+  // striped scarf over the hook
+  c.save();
+  for (let i = 0; i < 9; i++) {
+    c.fillStyle = i % 2 ? '#e9dcc0' : '#a8202e';
+    c.beginPath(); c.moveTo(800 - i * 1.5, 380 + i * 34); c.lineTo(838 - i * 1.5, 380 + i * 34);
+    c.lineTo(836 - (i + 1) * 1.5, 414 + i * 34); c.lineTo(798 - (i + 1) * 1.5, 414 + i * 34); c.closePath(); c.fill();
+  }
+  c.strokeStyle = '#e9dcc0'; c.lineWidth = 2;
+  for (let k = 0; k < 6; k++) { c.beginPath(); c.moveTo(788 + k * 6, 686); c.lineTo(787 + k * 6, 704); c.stroke(); }
+  c.restore();
+
+  // --- C: desk, books, notebook, inkwell, candlestick
+  c = ROOM_C.getContext('2d');
+  c.fillStyle = '#6a3f2d';
+  c.beginPath(); c.moveTo(40, 930); c.lineTo(742, 930); c.lineTo(772, 1012); c.lineTo(10, 1012); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(30,12,6,.18)'; c.lineWidth = 2;
+  for (let i = 0; i < 7; i++) {
+    const y = 940 + i * 11;
+    c.beginPath(); c.moveTo(lerp(40, 10, (y - 930) / 82), y);
+    c.bezierCurveTo(250, y + 3, 520, y - 3, lerp(742, 772, (y - 930) / 82), y + 1); c.stroke();
+  }
+  c.fillStyle = '#4d2c20'; c.fillRect(10, 1012, 762, 20);
+  c.fillStyle = 'rgba(255,200,150,.12)'; c.fillRect(10, 1012, 762, 3);
+  c.fillStyle = '#3d2319'; c.fillRect(28, 1032, 726, H - 1032);
+  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 4;
+  c.strokeRect(60, 1060, 300, 110); c.strokeRect(420, 1060, 300, 110);
+  c.fillStyle = '#c69a4e';
+  c.beginPath(); c.arc(210, 1115, 9, 0, TAU); c.arc(570, 1115, 9, 0, TAU); c.fill();
+  // books (back-left)
+  const book = (x, y, w, h, col) => {
+    c.fillStyle = col; c.fillRect(x, y, w, h);
+    c.fillStyle = '#e8dcc2'; c.fillRect(x + w - 6, y + 3, 5, h - 6);
+    c.fillStyle = 'rgba(255,215,140,.5)'; c.fillRect(x + 10, y + h / 2 - 2, w * .4, 3);
+  };
+  book(56, 902, 150, 26, '#2f4a5a'); book(66, 878, 132, 24, '#6b2a2e'); book(60, 856, 140, 22, '#4b3b62');
+  // inkwell
+  c.fillStyle = '#16101f'; ellipse(c, 590, 946, 20, 8); c.fill();
+  c.fillRect(574, 920, 32, 26);
+  c.fillStyle = '#231a30'; c.fillRect(581, 910, 18, 12);
+  c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(578, 924, 5, 16);
+  // notebook (cover, two pages, rule lines, a doodle)
+  c.fillStyle = '#6d1b24';
+  c.beginPath(); c.moveTo(232, 940); c.lineTo(554, 940); c.lineTo(566, 1010); c.lineTo(220, 1010); c.closePath(); c.fill();
+  c.fillStyle = '#efe4cc';
+  c.beginPath(); c.moveTo(238, 944); c.lineTo(390, 946); c.lineTo(392, 1006); c.lineTo(226, 1004); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(396, 946); c.lineTo(548, 944); c.lineTo(560, 1004); c.lineTo(394, 1006); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(80,60,40,.35)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(393, 946); c.lineTo(393, 1006); c.stroke();
+  c.strokeStyle = 'rgba(90,110,150,.22)'; c.lineWidth = 1.2;
+  for (let i = 1; i < 5; i++) {
+    const y = 944 + i * 12;
+    c.beginPath(); c.moveTo(lerp(238, 226, (y - 944) / 60), y); c.lineTo(388, y + 1); c.moveTo(398, y + 1); c.lineTo(lerp(548, 560, (y - 944) / 60), y); c.stroke();
+  }
+  drawBat(c, 312, 970, 1.7, .9, '#4a3550');
+  c.strokeStyle = '#4a3550'; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(352, 958, 9, -1.2, 1.9); c.stroke();
+  // candlestick (brass dish + wax)
+  c.fillStyle = '#8a6430'; ellipse(c, 662, 972, 50, 13); c.fill();
+  c.fillStyle = '#c9a050'; ellipse(c, 662, 968, 46, 11); c.fill();
+  c.strokeStyle = '#8a6430'; c.lineWidth = 6; c.beginPath(); c.arc(718, 966, 12, -1.6, 1.6); c.stroke();
+  c.fillStyle = '#efe2c6'; c.fillRect(646, 892, 32, 76);
+  ellipse(c, 662, 892, 16, 5); c.fill();
+  c.fillStyle = '#e2d2b0';
+  c.beginPath(); c.moveTo(650, 894); c.quadraticCurveTo(648, 920, 652, 930); c.quadraticCurveTo(656, 920, 655, 896); c.fill();
+  c.beginPath(); c.moveTo(670, 894); c.quadraticCurveTo(672, 910, 669, 916); c.quadraticCurveTo(666, 906, 667, 894); c.fill();
+  c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(668, 892, 10, 76);
+  c.strokeStyle = '#2a1a14'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(662, 892); c.lineTo(662, 880); c.stroke();
+})();
+
+// moth flight in screen space, shared by S3 → S4 (t, x, y)
+const MOTH_KEYS = [[10.4, 690, 356], [10.9, 640, 262], [11.35, 640, 520], [11.85, 596, 850],
+                   [12.4, 470, 700], [12.9, 610, 520], [13.4, 540, 402]];
+function mothPos(t) {
+  const [x, y] = keyPath(MOTH_KEYS, t);
+  const k = 1 - inv(12.9, 13.4, t);
+  return [x + 16 * Math.sin(t * 11) * k, y + 9 * Math.sin(t * 17) * k];
+}
+const ROOM_STARS = makeStars(5, 26, 72, 172, 268, 470);
+function pathPoint(path, frac) {
+  const L = path.total * clamp(frac), { pts, cum } = path;
+  let i = 1; while (i < pts.length - 1 && cum[i] < L) i++;
+  const f = (L - cum[i - 1]) / (cum[i] - cum[i - 1] || 1);
+  return [lerp(pts[i - 1][0], pts[i][0], clamp(f)), lerp(pts[i - 1][1], pts[i][1], clamp(f))];
+}
+const PEN_REST = [482, 990], PEN_AWAY = [556, 972];
+function penTip(t) {
+  const start = NAME_MAIN.pts[0], end = NAME_MAIN.pts[NAME_MAIN.pts.length - 1];
+  const hop = (a, b, k, h) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k) - Math.sin(Math.PI * k) * h];
+  if (t < 7.7) return [PEN_REST[0] + Math.sin(t * 1.3) * 2, PEN_REST[1]];
+  if (t < 7.95) return hop(PEN_REST, start, E.sine(inv(7.7, 7.95, t)), 12);
+  if (t < 9.25) return pathPoint(NAME_MAIN, E.sine(inv(7.95, 9.25, t)));
+  if (t < 9.4) return hop(end, NAME_DOT, E.sine(inv(9.25, 9.4, t)), 10);
+  if (t < 9.46) return NAME_DOT;
+  return hop(NAME_DOT, PEN_AWAY, E.out(inv(9.46, 9.95, t)), 18);
+}
+
+function casimirRoomState(t, pen, moth) {
+  const st = { lx: .15, ly: .75, brow: 0, mouth: 0, smile: .6, tilt: 0, dy: 0, blink: 0 };
+  const look = E.io(inv(5.3, 5.8, t)) * (1 - E.io(inv(7.35, 7.8, t)));
+  st.lx = lerp(st.lx, .85, look); st.ly = lerp(st.ly, -.6, look);
+  const fear = E.io(inv(5.6, 6.6, t)) * (1 - E.io(inv(7.3, 7.9, t)));
+  st.brow = fear; st.mouth = fear * .85; st.smile = lerp(.6, .2, fear);
+  st.dy = -9 * fear; st.tilt = -.06 * fear;
+  if (t > 7.6) st.smile = .35;
+  const wk = E.io(inv(7.7, 7.95, t)) * (1 - E.io(inv(9.4, 9.6, t)));
+  st.lx = lerp(st.lx, clamp((pen[0] - 330) / 210, -1, 1), wk); st.ly = lerp(st.ly, .9, wk);
+  if (t >= 9.4) {
+    const up = E.io(inv(9.4, 9.85, t));
+    st.lx = lerp(st.lx, .8, up); st.ly = lerp(st.ly, -.45, up); st.smile = lerp(.35, 1, up);
+  }
+  if (t > 10.4) {
+    const k = E.io(inv(10.4, 10.75, t));
+    st.lx = lerp(st.lx, clamp((moth[0] - 330) / 260, -1, 1), k);
+    st.ly = lerp(st.ly, clamp((moth[1] - 600) / 220, -1, 1), k);
+    st.tilt = .05 * k;
+  }
+  for (const tb of [4.35, 7.6, 10.1]) st.blink = Math.max(st.blink, 1 - Math.abs(t - tb) / .09);
+  return st;
+}
+
+function drawWindowSky(c, t) {
+  c.save(); windowPath(c); c.clip();
+  const g = c.createLinearGradient(0, 160, 0, 500);
+  g.addColorStop(0, '#0d0b26'); g.addColorStop(1, '#2d2458');
+  c.fillStyle = g; c.fillRect(60, 160, 220, 350);
+  drawStars(c, ROOM_STARS, t);
+  drawPaperMoon(c, 224, 236, 92, t, 2.4, .6);
+  c.fillStyle = '#1a1438';
+  c.beginPath(); c.moveTo(60, 520); c.quadraticCurveTo(120, 430, 200, 456); c.quadraticCurveTo(250, 470, 290, 440); c.lineTo(290, 520); c.closePath(); c.fill();
+  c.restore();
+}
+
+function drawRoom(c, t) {
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const zc = lerp(1.18, 1, E.out(inv(3.0, 4.7, t)));
+  c.translate(540, 640); c.scale(zc, zc); c.translate(-540, -640);
+
+  const m1 = E.io(inv(5.0, 7.3, t)), m2 = E.io(inv(9.45, 10.45, t));
+  const pen = penTip(t), moth = mothPos(t);
+  const st = casimirRoomState(t, pen, moth);
+
+  drawWindowSky(c, t);
+  c.drawImage(ROOM_A, 0, 0);
+
+  // Casimir's own soft shadow (kept off the window glass)
+  c.save();
+  c.beginPath(); c.rect(0, 0, W, H); windowPath(c, false); c.clip('evenodd');
+  c.translate(HEAD[0] - 92, HEAD[1] - 36 + st.dy * .6); c.scale(1.18, 1.18);
+  softFill(c, cc => {
+    cc.beginPath(); cc.ellipse(0, -14, 106, 124, 0, 0, TAU, true);
+    cc.moveTo(-60, 100); cc.lineTo(-190, -40); cc.lineTo(-200, 90); cc.lineTo(-210, 380);
+    cc.lineTo(210, 380); cc.lineTo(200, 90); cc.lineTo(190, -40); cc.lineTo(60, 100); cc.closePath();
+    cc.moveTo(88, -18); cc.lineTo(118, 22); cc.lineTo(156, -62); cc.closePath();
+    cc.moveTo(-88, -18); cc.lineTo(-156, -62); cc.lineTo(-118, 22); cc.closePath();
+  }, 'rgba(12,7,24,.36)', 22);
+  c.restore();
+
+  // the coat's shadow → monster → moth
+  const P = SH_POS;
+  const shape = lerpPts(lerpPts(COAT_SH, MONSTER_SH, m1), MOTH_SH, m2);
+  const cx = lerp(lerp(P.coat[0], P.monster[0], m1), P.moth[0], m2) + noise1(t * 6, 3) * 6 * (1 + m1);
+  const cy = lerp(lerp(P.coat[1], P.monster[1], m1), P.moth[1], m2) + noise1(t * 5, 7) * 4;
+  const sc = lerp(lerp(P.coat[2], P.monster[2], m1), P.moth[2], m2) *
+             (1 + .03 * Math.sin(t * 4.2) * m1 * (1 - m2) + noise1(t * 5, 8) * .012);
+  const shA = 1 - inv(10.35, 10.65, t);
+  if (shA > 0) {
+    c.save(); c.translate(cx, cy); c.scale(sc, sc);
+    softFill(c, cc => smoothPath(cc, shape), `rgba(10,5,20,${.86 * shA})`, 12 + 2 * m1);
+    const eyeA = inv(6.4, 7.0, t) * (1 - clamp(m2 * 2.2)) * shA;
+    if (eyeA > 0) {
+      for (const sd of [-1, 1]) {
+        glow(c, sd * 50, -184, 60, 'rgba(255,170,90,0.45)', eyeA);
+        c.fillStyle = `rgba(255,196,120,${eyeA})`;
+        c.save(); c.translate(sd * 50, -184); c.rotate(sd * .38); ellipse(c, 0, 0, 25, 10); c.fill(); c.restore();
+      }
+      c.beginPath(); c.moveTo(-58, -130);
+      for (let i = 1; i <= 8; i++) c.lineTo(-58 + i * 14.5, -130 + (i % 2 ? 13 : 0));
+      c.quadraticCurveTo(0, -100, -58, -130); c.closePath();
+      c.fillStyle = `rgba(160,128,150,${eyeA * .6})`; c.fill();
+    }
+    c.restore();
+  }
+
+  c.drawImage(ROOM_B, 0, 0);
+  drawCasimirFront(c, HEAD[0], HEAD[1], 1, st);
+  c.drawImage(ROOM_C, 0, 0);
+
+  // ink: the name, then a warm glow once it is written
+  const wf = E.sine(inv(7.95, 9.25, t));
+  const glowA = E.out(inv(9.45, 9.9, t)) * (.75 + .25 * Math.sin(t * 6));
+  if (wf > 0) {
+    c.save();
+    c.strokeStyle = c.fillStyle = mix('#2a1830', '#c9761c', glowA * .6);
+    c.lineWidth = 3.4; c.lineCap = 'round'; c.lineJoin = 'round';
+    if (glowA > 0) { c.shadowColor = `rgba(255,196,90,${glowA})`; c.shadowBlur = 16; }
+    strokePartial(c, NAME_MAIN, wf);
+    if (t > 9.4) { c.beginPath(); c.arc(NAME_DOT[0], NAME_DOT[1], 2.7, 0, TAU); c.fill(); }
+    c.restore();
+  }
+
+  // arms, quill
+  drawForearm(c, 228, 948, 270, 984, 30);
+  drawHand(c, 292, 994, 1, .5);
+  const elbow = [504, 934];
+  const dx = pen[0] - elbow[0], dy = pen[1] - elbow[1], dl = Math.hypot(dx, dy) || 1;
+  const dir = [dx / dl, dy / dl];
+  const hand = [pen[0] - dir[0] * 30, pen[1] - dir[1] * 30];
+  drawForearm(c, elbow[0], elbow[1], hand[0] - dir[0] * 14, hand[1] - dir[1] * 14);
+  const writing = t > 7.95 && t < 9.25 ? 1 : 0;
+  drawQuill(c, pen[0], pen[1], -1.12 + .07 * Math.sin(t * 28) * writing, 150);
+  drawHand(c, hand[0], hand[1], 1, Math.atan2(dir[1], dir[0]));
+
+  // golden motes carry the name up to the shadow
+  for (let i = 0; i < 16; i++) {
+    const ts = 9.42 + i * .035, k = inv(ts, ts + .6, t);
+    if (k <= 0 || k >= 1) continue;
+    const a = pathPoint(NAME_MAIN, i / 15), b = [cx, cy], ctl = [lerp(a[0], b[0], .3) + 80, lerp(a[1], b[1], .6) + 60];
+    const e = E.io(k), u = 1 - e;
+    const px = u * u * a[0] + 2 * u * e * ctl[0] + e * e * b[0], py = u * u * a[1] + 2 * u * e * ctl[1] + e * e * b[1];
+    glow(c, px, py, 14, 'rgba(255,210,120,0.9)', Math.sin(Math.PI * k));
+  }
+
+  // candle + lighting
+  const fl = .88 + .12 * noise1(t * 7, 1) + .07 * Math.sin(t * 29) * m1 * (1 - m2);
+  drawFlame(c, FLAME[0], FLAME[1], .34, t);
+  c.save();
+  c.globalCompositeOperation = 'soft-light';
+  let g = c.createRadialGradient(FLAME[0], FLAME[1], 0, FLAME[0], FLAME[1], 780 * fl);
+  g.addColorStop(0, 'rgba(255,200,120,1)'); g.addColorStop(.45, 'rgba(255,170,100,.5)'); g.addColorStop(1, 'rgba(255,170,100,0)');
+  c.fillStyle = g; c.fillRect(-200, -200, W + 400, H + 400);
+  c.globalCompositeOperation = 'source-over';
+  const dark = .48 + .24 * m1 * (1 - m2);
+  g = c.createRadialGradient(FLAME[0] - 90, FLAME[1] - 130, 120, FLAME[0] - 90, FLAME[1] - 130, 1150);
+  g.addColorStop(0, 'rgba(8,4,18,0)'); g.addColorStop(1, `rgba(8,4,18,${dark})`);
+  c.fillStyle = g; c.fillRect(-200, -200, W + 400, H + 400);
+  c.restore();
+  glow(c, FLAME[0], FLAME[1], 270 * fl, 'rgba(255,170,80,0.42)');
+  glow(c, FLAME[0], FLAME[1], 70 * fl, 'rgba(255,224,150,0.6)');
+  glow(c, 170, 330, 340, 'rgba(110,120,255,0.08)');
+
+  // arrive from the warm window light of S1
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const wash = (1 - E.sine(inv(3.3, 4.1, t))) * .9;
+  if (wash > 0) { c.fillStyle = `rgba(255,198,120,${wash})`; c.fillRect(0, 0, W, H); }
+}
+
+/* =====================================================================
+   S4 — the battlements and the lantern constellation
+   ===================================================================== */
+const S4_STARS = makeStars(9, 230, 0, 0, W, 1000);
+const LANTERN = [
+  [0, 130, 1], [-32, 160, .7], [32, 160, .7], [-25, 205, .8], [25, 205, .8], [-88, 262, 1], [88, 262, 1],
+  [-100, 395, .9], [100, 395, .9], [-70, 522, .85], [70, 522, .85], [-94, 548, .8], [94, 548, .8],
+  [-35, 268, .45], [35, 268, .45], [-30, 516, .45], [30, 516, .45]].map(([x, y, m]) => [540 + x * 1.3, y, m]);
+const LANTERN_LINES = [[1, 0], [0, 2], [1, 3], [2, 4], [3, 4], [3, 5], [4, 6], [5, 6], [5, 7], [6, 8],
+                       [7, 9], [8, 10], [9, 10], [9, 11], [10, 12], [11, 12], [13, 15], [14, 16]];
+const FLAME_POS = [540, 402];
+const MERLONS = [[-220, -60], [100, 300], [540, 740], [920, 1140]];
+const S4_HEAD = [420, 852], S4_SCALE = .68;
+const lanternWarm = t => E.io(inv(13.6, 14.6, t));
+
+function drawConstellation(c, t) {
+  const wk = lanternWarm(t), P = i => LANTERN[i];
+  if (wk > 0) { // warm light inside the panes
+    const g = c.createRadialGradient(FLAME_POS[0], FLAME_POS[1], 10, FLAME_POS[0], FLAME_POS[1], 210);
+    g.addColorStop(0, `rgba(255,200,110,${.34 * wk})`); g.addColorStop(1, `rgba(255,160,80,${.07 * wk})`);
+    c.fillStyle = g; polyPath(c, [5, 6, 8, 10, 9, 7].map(P)); c.fill();
+    c.fillStyle = `rgba(255,190,110,${.12 * wk})`; polyPath(c, [3, 4, 6, 5].map(P)); c.fill();
+  }
+  c.save(); c.lineCap = 'round';
+  c.shadowColor = mix('#9fb0ff', '#ffc46a', wk, .8); c.shadowBlur = 10;
+  c.strokeStyle = mix('#d4dbff', '#ffd98c', wk, .78); c.lineWidth = 2.3;
+  LANTERN_LINES.forEach(([a, b], j) => {
+    const k = E.io(inv(12.9 + j * .08, 13.25 + j * .08, t)); if (k <= 0) return;
+    const A = P(a), B = P(b);
+    c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(lerp(A[0], B[0], k), lerp(A[1], B[1], k)); c.stroke();
+  });
+  c.restore();
+  LANTERN.forEach(([x, y, m], i) => {
+    const a = E.out(inv(12.3 + i * .05, 12.6 + i * .05, t)); if (a <= 0) return;
+    const tw = .8 + .2 * Math.sin(t * 3 + i * 1.7), r = (2.2 + m * 3.2) * (1 + .15 * wk);
+    glow(c, x, y, r * 6, mix('#cfd6ff', '#ffd27a', wk, .5), a * tw);
+    c.fillStyle = mix('#ffffff', '#fff1c8', wk, a);
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    if (m > .75) {
+      c.strokeStyle = mix('#ffffff', '#ffe2a0', wk, a * .6 * tw); c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(x - r * 4, y); c.lineTo(x + r * 4, y); c.moveTo(x, y - r * 4); c.lineTo(x, y + r * 4); c.stroke();
+    }
+  });
+}
+
+function battlementPath(c) {
+  c.beginPath(); c.rect(-120, 1040, W + 240, H);
+  for (const [x0, x1] of MERLONS) c.rect(x0, 884, x1 - x0, 160);
+}
+function drawBattlements(c) {
+  let g = c.createLinearGradient(0, 880, 0, H);
+  g.addColorStop(0, '#3b3257'); g.addColorStop(.3, '#2c2444'); g.addColorStop(1, '#17122a');
+  battlementPath(c); c.fillStyle = g; c.fill();
+  c.save(); battlementPath(c); c.clip();
+  c.strokeStyle = 'rgba(0,0,0,.32)'; c.lineWidth = 3;
+  for (let y = 884 + 40, row = 0; y < H + 60; y += 42, row++) {
+    c.beginPath(); c.moveTo(-120, y); c.lineTo(W + 120, y); c.stroke();
+    for (let x = (row % 2) * 64 - 40; x < W + 120; x += 128) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 42); c.stroke(); }
+  }
+  c.strokeStyle = 'rgba(210,200,255,.06)'; c.lineWidth = 2;
+  for (let y = 884 + 42, row = 0; y < H + 60; y += 42, row++) { c.beginPath(); c.moveTo(-120, y); c.lineTo(W + 120, y); c.stroke(); }
+  c.restore();
+  // ledge surface in the gaps, capstones on the merlons
+  c.fillStyle = '#4a4068';
+  let prev = -400;
+  for (const [x0, x1] of MERLONS) { if (x0 > prev) c.fillRect(prev, 1032, x0 - prev, 12); prev = x1; }
+  c.fillRect(prev, 1032, W + 400, 12);
+  for (const [x0, x1] of MERLONS) {
+    c.fillStyle = '#463c66'; c.fillRect(x0 - 7, 872, x1 - x0 + 14, 18);
+    c.fillStyle = 'rgba(214,204,255,.28)'; c.fillRect(x0 - 7, 872, x1 - x0 + 14, 3);
+    c.fillStyle = 'rgba(214,204,255,.12)'; c.fillRect(x0, 890, 4, 150);
+  }
+}
+
+function drawScene4(c, t) {
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const cam = lerp(-70, 0, E.out(inv(11.0, 13.8, t)));
+  const wk = lanternWarm(t);
+  drawSky(c, [[0, '#08071d'], [.45, '#151339'], [.72, '#272055'], [.8, '#3a2d66'], [1, '#1c1636']]);
+
+  c.setTransform(1, 0, 0, 1, 0, cam * .3);
+  c.save(); c.translate(620, 420); c.rotate(-.55); c.scale(1, .22);
+  const mw = c.createRadialGradient(0, 0, 0, 0, 0, 760);
+  mw.addColorStop(0, 'rgba(180,170,255,.11)'); mw.addColorStop(1, 'rgba(180,170,255,0)');
+  c.fillStyle = mw; c.beginPath(); c.arc(0, 0, 760, 0, TAU); c.fill();
+  c.restore();
+  drawStars(c, S4_STARS, t, .9);
+  drawPaperMoon(c, 186, 226, 78, t, 3.1, .8);
+  const ss = inv(14.9, 15.35, t); // a tiny shooting star
+  if (ss > 0 && ss < 1) {
+    const hx = lerp(990, 760, ss), hy = lerp(140, 280, ss);
+    const sg = c.createLinearGradient(hx, hy, hx + 130, hy - 80);
+    sg.addColorStop(0, `rgba(255,255,255,${Math.sin(Math.PI * ss)})`); sg.addColorStop(1, 'rgba(255,255,255,0)');
+    c.strokeStyle = sg; c.lineWidth = 2.2; c.beginPath(); c.moveTo(hx, hy); c.lineTo(hx + 130, hy - 80); c.stroke();
+  }
+
+  c.setTransform(1, 0, 0, 1, 0, cam * .6);
+  drawConstellation(c, t);
+
+  c.setTransform(1, 0, 0, 1, 0, cam);
+  paperLayer(c, () => hillPath(c, 990, 16, .007, 2.2, 6), '#2a2253', 'rgba(196,186,255,.14)', 14);
+  for (let i = 0; i < 11; i++) {
+    const x = 40 + i * 97 + (i % 4) * 13, y = 990 + Math.sin(x * .007 + 2.2) * 16 + 14;
+    c.fillStyle = `rgba(255,205,120,${.4 + .3 * Math.sin(t * 2.6 + i * 1.3)})`; c.fillRect(x, y, 3, 3);
+  }
+  paperLayer(c, () => hillPath(c, 1018, 12, .011, .7, 8), '#1d1742', 'rgba(196,186,255,.1)', 12);
+  const bk = inv(13.9, 16, t); // a far-off bat crossing
+  if (bk > 0 && bk < 1) drawBat(c, lerp(1120, -40, bk), 640 - Math.sin(bk * 3) * 40, .75, t * 14, '#0d0a1f');
+  drawBattlements(c);
+  drawCasimirBack(c, S4_HEAD[0], S4_HEAD[1], S4_SCALE, t, {
+    ledge: (1040 - S4_HEAD[1]) / S4_SCALE,
+    tilt: E.io(inv(11.5, 13.3, t)),
+    rim: wk,
+  });
+
+  // the new lantern warms the stones
+  if (wk > 0) {
+    c.save(); c.globalCompositeOperation = 'soft-light';
+    const g = c.createRadialGradient(FLAME_POS[0], FLAME_POS[1], 40, FLAME_POS[0], FLAME_POS[1], 900);
+    g.addColorStop(0, `rgba(255,190,110,${.9 * wk})`); g.addColorStop(1, 'rgba(255,190,110,0)');
+    c.fillStyle = g; c.fillRect(-100, -200, W + 200, H + 400);
+    c.restore();
+  }
+}
+
+/* =====================================================================
+   Master timeline
+   ===================================================================== */
+const VIGNETTE = mkCanvas(W, H);
+(() => {
+  const g = VIGNETTE.getContext('2d'), r = g.createRadialGradient(540, 640, 420, 540, 640, 1000);
+  r.addColorStop(0, 'rgba(0,0,0,0)'); r.addColorStop(1, 'rgba(0,0,0,.5)');
+  g.fillStyle = r; g.fillRect(0, 0, W, H);
+})();
+
+// the moth (and later the flame) lives above the scenes so its flight is continuous across the cut
+function drawTopLayer(c, t) {
+  if (t < 10.35) return;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const [x, y] = mothPos(t), [x2] = mothPos(t + .05);
+  const appear = E.out(inv(10.35, 10.65, t)), morph = E.io(inv(13.3, 14.1, t));
+  if (morph < 1) {
+    const s = lerp(.62, .42, E.io(inv(10.6, 13.3, t))) * lerp(.8, 1, appear) * (1 - .55 * morph);
+    glow(c, x, y, 70, 'rgba(255,232,190,0.28)', appear * (1 - morph));
+    drawMoth(c, x, y, s, t * 26, clamp((x2 - x) * .05, -.5, .5) * (1 - morph), appear * (1 - E.in(morph)), morph);
+  }
+  const k = inv(13.45, 14.1, t);
+  if (k > 0) {
+    const [fx, fy] = FLAME_POS, kk = E.back(k), fl = .9 + .1 * noise1(t * 8, 12);
+    glow(c, fx, fy, 260 * kk, 'rgba(255,170,80,0.5)', fl);
+    glow(c, fx, fy, 90 * kk, 'rgba(255,226,160,0.8)', fl);
+    drawFlame(c, fx, fy + 4, .62 * kk, t, 3);
+  }
+}
+
+function render(t) {
+  const c = ctx;
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  c.fillStyle = '#07050f'; c.fillRect(0, 0, W, H);
+  if (t < 3.05) {
+    drawScene1(cA, t); c.drawImage(bufA, 0, 0);
+  } else if (t < 3.6) {
+    drawScene1(cA, t); drawRoom(cB, t);
+    c.drawImage(bufA, 0, 0); c.globalAlpha = E.sine(inv(3.05, 3.6, t)); c.drawImage(bufB, 0, 0);
+  } else if (t < 10.9) {
+    drawRoom(cA, t); c.drawImage(bufA, 0, 0);
+  } else if (t < 11.7) { // camera tilts up out of the room, onto the battlements
+    const e = E.io(inv(10.9, 11.7, t)), seam = H * e;
+    drawRoom(cA, t); drawScene4(cB, t);
+    c.drawImage(bufA, 0, seam); c.drawImage(bufB, 0, seam - H);
+    const g = c.createLinearGradient(0, seam - 120, 0, seam + 120);
+    g.addColorStop(0, 'rgba(7,5,15,0)'); g.addColorStop(.5, 'rgba(7,5,15,.95)'); g.addColorStop(1, 'rgba(7,5,15,0)');
+    c.fillStyle = g; c.fillRect(0, seam - 120, W, 240);
+  } else {
+    drawScene4(cA, t); c.drawImage(bufA, 0, 0);
+  }
+  c.globalAlpha = 1;
+  drawTopLayer(c, t);
+
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.drawImage(VIGNETTE, 0, 0);
+  const o = Math.floor(t * 12); // hand-made grain, 12 fps
+  c.save(); c.translate((o * 37) % 256 - 256, (o * 91) % 256 - 256);
+  c.fillStyle = grainPattern; c.fillRect(0, 0, W + 512, H + 512);
+  c.restore();
+  const black = Math.max(1 - E.out(inv(0, .6, t)), E.in(inv(15.55, 16, t)));
+  if (black > 0) { c.fillStyle = `rgba(7,5,15,${black})`; c.fillRect(0, 0, W, H); }
+}
+
+/* =====================================================================
+   Text layer, controls
+   ===================================================================== */
+const stage = document.getElementById('stage');
+const scrim = document.getElementById('scrim');
+const timed = [...document.querySelectorAll('#textLayer [data-in]')];
+const btnPlay = document.getElementById('btnPlay'), btnRestart = document.getElementById('btnRestart');
+const btnRo = document.getElementById('btnRo'), btnEn = document.getElementById('btnEn');
+const scrub = document.getElementById('scrub'), timeEl = document.getElementById('time');
+let U = 1;
+
+function syncText(t) {
+  let caps = 0;
+  for (const el of timed) {
+    const a = +el.dataset.in, b = +el.dataset.out;
+    const o = env(t, a, a + .4, b - .4, b);
+    el.style.opacity = o.toFixed(3);
+    el.style.transform = `translateY(${((1 - o) * 14 * U).toFixed(2)}px)`;
+    if (el.classList.contains('cap')) caps = Math.max(caps, o);
+  }
+  scrim.style.opacity = caps.toFixed(3);
+}
+function onResize() {
+  U = stage.getBoundingClientRect().width / W;
+  stage.style.setProperty('--u', U + 'px');
+  dirty = true;
+}
+
+const LABELS = {
+  ro: { pause: 'Pauză', play: 'Redă', restart: 'De la început', time: 'Timp', group: 'Limba textului',
+        canvas: 'Animație: Casimir, un vampir blând de 11 ani, își îmblânzește frica dându-i un nume.' },
+  en: { pause: 'Pause', play: 'Play', restart: 'Restart', time: 'Time', group: 'Text language',
+        canvas: 'Animation: Casimir, a gentle 11-year-old vampire, tames his fear by giving it a name.' },
+};
+let lang = 'ro', playing = true, cur = 0, last = performance.now(), dirty = true, scrubbing = false;
+const params = new URLSearchParams(location.search);
+const LOOP = params.get('loop') !== '0';
+
+function setPlaying(p) {
+  playing = p;
+  btnPlay.textContent = p ? '❚❚' : '▶';
+  btnPlay.setAttribute('aria-label', LABELS[lang][p ? 'pause' : 'play']);
+}
+function setLang(l) {
+  lang = l === 'en' ? 'en' : 'ro';
+  stage.dataset.lang = lang; document.documentElement.lang = lang;
+  btnRo.setAttribute('aria-pressed', String(lang === 'ro'));
+  btnEn.setAttribute('aria-pressed', String(lang === 'en'));
+  btnRestart.setAttribute('aria-label', LABELS[lang].restart);
+  scrub.setAttribute('aria-label', LABELS[lang].time);
+  btnRo.parentElement.setAttribute('aria-label', LABELS[lang].group);
+  cv.setAttribute('aria-label', LABELS[lang].canvas);
+  setPlaying(playing);
+}
+function seek(t) { cur = clamp(t, 0, DUR); dirty = true; }
+
+btnPlay.addEventListener('click', () => { if (!playing && cur >= DUR) cur = 0; setPlaying(!playing); });
+btnRestart.addEventListener('click', () => { seek(0); setPlaying(true); });
+btnRo.addEventListener('click', () => setLang('ro'));
+btnEn.addEventListener('click', () => setLang('en'));
+scrub.addEventListener('pointerdown', () => { scrubbing = true; });
+window.addEventListener('pointerup', () => { scrubbing = false; });
+scrub.addEventListener('input', () => seek(+scrub.value));
+window.addEventListener('keydown', e => {
+  const onControl = e.target.closest && e.target.closest('button, input');
+  if (e.code === 'Space' && !onControl) { e.preventDefault(); btnPlay.click(); }
+  else if (e.key === 'l' || e.key === 'L') setLang(lang === 'ro' ? 'en' : 'ro');
+  else if (e.key === 'r' || e.key === 'R') btnRestart.click();
+  else if (!onControl && e.key === 'ArrowRight') seek(cur + .5);
+  else if (!onControl && e.key === 'ArrowLeft') seek(cur - .5);
+});
+new ResizeObserver(onResize).observe(stage);
+
+if (params.get('lang') === 'en') setLang('en'); else setLang('ro');
+if (params.get('controls') === '0') document.body.classList.add('clean');
+if (params.has('t')) { seek(+params.get('t')); setPlaying(false); }
+
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (playing) {
+    cur += dt;
+    if (cur >= DUR) { if (LOOP) cur %= DUR; else { cur = DUR; setPlaying(false); } }
+    dirty = true;
+  }
+  if (dirty) {
+    render(cur); syncText(cur);
+    if (!scrubbing) scrub.value = cur.toFixed(2);
+    timeEl.textContent = `${cur.toFixed(1)} / ${DUR.toFixed(1)}s`;
+    dirty = false;
+  }
+  requestAnimationFrame(frame);
+}
+onResize();
+requestAnimationFrame(frame);
+
+// small API for recording / embedding
+window.casimir = { seek, setLang, play: () => setPlaying(true), pause: () => setPlaying(false),
+                   duration: DUR, renderAt: t => { seek(t); render(cur); syncText(cur); } };
+})();
+</script>
+</body>
+</html>
